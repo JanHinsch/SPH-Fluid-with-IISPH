@@ -1,0 +1,9 @@
+# Ignoriere alle .log-Dateien
+*.log
+
+# Ignoriere den gesamten Build-Ordner
+/cmake-build-debug
+/frames
+
+# Ignoriere temporäre Dateien
+*.tmp

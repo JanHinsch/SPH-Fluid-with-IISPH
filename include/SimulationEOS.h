@@ -1,6 +1,6 @@
-// Simulation.h
-#ifndef SIMULATION_H
-#define SIMULATION_H
+// SimulationEOS.h
+#ifndef SIMULATIONEOS_H
+#define SIMULATIONEOS_H
 
 #include "Particle.h"
 #include <vector>
@@ -41,4 +41,4 @@ private:
 };
 
 
-#endif // SIMULATION_H
+#endif // SIMULATIONEOS_H

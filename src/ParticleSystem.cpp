@@ -2,7 +2,7 @@
 #include "../include/ParticleSystem.h"
 #include "../include/Globals.h"
 #include "../include/Grid.h"
-#include "../include/Simulation.h"
+#include "../include/SimulationEOS.h"
 #include "../include/UIManager.h"
 #include <cstdlib>
 #include <cmath>

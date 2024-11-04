@@ -25,7 +25,7 @@ add_executable(main
     src/Globals.cpp
     src/Grid.cpp
     src/ParticleSystem.cpp
-    src/Simulation.cpp
+        src/SimulationEOS.cpp
     src/Visualization.cpp
     src/UIManager.cpp
     src/main.cpp
@@ -42,7 +42,7 @@ add_executable(tests_neighbour
     src/Globals.cpp
     src/Grid.cpp
     src/ParticleSystem.cpp
-    src/Simulation.cpp
+        src/SimulationEOS.cpp
     src/Visualization.cpp
 )
 
@@ -51,7 +51,7 @@ add_executable(tests_SPH_Kernel
     src/Globals.cpp
     src/Grid.cpp
     src/ParticleSystem.cpp
-    src/Simulation.cpp
+        src/SimulationEOS.cpp
     src/Visualization.cpp
 )
 
@@ -69,7 +69,7 @@ add_executable(tests_SPH_Computations
     src/Globals.cpp
     src/Grid.cpp
     src/ParticleSystem.cpp
-    src/Simulation.cpp
+        src/SimulationEOS.cpp
     src/Visualization.cpp
 )
 

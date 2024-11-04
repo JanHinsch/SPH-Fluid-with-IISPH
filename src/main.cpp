@@ -5,7 +5,7 @@
 #include "../include/UIManager.h"
 #include "../include/ParticleSystem.h"
 #include "../include/Visualization.h"
-#include "../include/Simulation.h"
+#include "../include/SimulationEOS.h"
 #include "../include/Globals.h"
 
 int count = 0;

@@ -1,5 +1,5 @@
 // Simulation.cpp
-#include "../include/Simulation.h"
+#include "../include/SimulationEOS.h"
 #include "../include/ParticleSystem.h"
 #include "../include/Globals.h"
 #include <cmath>

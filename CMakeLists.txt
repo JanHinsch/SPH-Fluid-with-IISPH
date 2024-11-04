@@ -22,13 +22,16 @@ endif()
 
 # Add the executable
 add_executable(main
+
     src/Globals.cpp
     src/Grid.cpp
     src/ParticleSystem.cpp
         src/SimulationEOS.cpp
+        src/SimulationIISPH.cpp
     src/Visualization.cpp
     src/UIManager.cpp
     src/main.cpp
+
 )
 
 

@@ -96,8 +96,8 @@ int main() {
         uiManager.draw();
         window.display();
 
-        count++;
-        std::cout << "\rcount: " << count << "/10000 " << std::flush;
+        //count++;
+        //std::cout << "\rcount: " << count << "/10000 " << std::flush;
 
         // quick bugfix
         if (count==1) {

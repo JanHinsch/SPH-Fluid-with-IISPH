@@ -1,12 +1,11 @@
-// SimulationEOS.h
-#ifndef SIMULATIONEOS_H
-#define SIMULATIONEOS_H
+#ifndef SIMULATIONIISPH_H
+#define SIMULATIONIISPH_H
 
 #include "Particle.h"
 #include <vector>
 #include <SFML/Graphics.hpp>
 
-class SPHComputationsEOS {
+class SPHComputationsIISPH {
 public:
     static float kernelAlpha();
     static float kernel(sf::Vector2f positionA, sf::Vector2f positionB);
@@ -37,8 +36,9 @@ public:
     static float getCourantNumber(std::vector<Particle> &particles);
 
 private:
-    
+
 };
 
 
-#endif // SIMULATIONEOS_H
+
+#endif //SIMULATIONIISPH_H

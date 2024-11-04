@@ -43,6 +43,9 @@ extern bool simulationPaused;
 
 extern bool switchDir;
 
+// for color gradient
+extern float speedThreshold1;
+extern float speedThreshold2;
 
 ////////////////////// helper functions //////////////////////
 

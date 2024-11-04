@@ -3,6 +3,7 @@
 #include "../include/Globals.h"
 #include "../include/Grid.h"
 #include "../include/SimulationEOS.h"
+#include "../include/SimulationIISPH.h"
 #include "../include/UIManager.h"
 #include <cstdlib>
 #include <cmath>
@@ -152,10 +153,10 @@ void ParticleSystem::updateParticlesEOS(std::vector<Particle>& particles, int x_
 
         // quadraticNeighbourSearch(particle, neighbours);
 
-        particle.density = SPHComputations::computeDensity(particle, neighbours);
-        if (SPHComputations::isParticleCompressed(particle.density)) {
+        particle.density = SPHComputationsEOS::computeDensity(particle, neighbours);
+        if (SPHComputationsEOS::isParticleCompressed(particle.density)) {
             //printf("denisty: %f", particle.density);
-            particle.pressure = SPHComputations::computePressure(particle.density);
+            particle.pressure = SPHComputationsEOS::computePressure(particle.density);
         } else {
             particle.pressure = 0;
         }
@@ -172,7 +173,7 @@ void ParticleSystem::updateParticlesEOS(std::vector<Particle>& particles, int x_
 
         // quadraticNeighbourSearch(particle, neighbours);
 
-        particle.acceleration = SPHComputations::computeTotalAcceleration(particle, neighbours);
+        particle.acceleration = SPHComputationsEOS::computeTotalAcceleration(particle, neighbours);
 
         if (particle.position.x < 20 || particle.position.x > x_size_screen - 40 || particle.position.y < 20 || particle.position.y > y_size_screen - 40) {
             m_particles.erase(m_particles.begin() + it);
@@ -180,9 +181,9 @@ void ParticleSystem::updateParticlesEOS(std::vector<Particle>& particles, int x_
         it++;
     }
 
-    SPHComputations::advectParticles(particles);
+    SPHComputationsEOS::advectParticles(particles);
 
-    SPHComputations::isCFLConditionTrue(particles);
+    SPHComputationsEOS::isCFLConditionTrue(particles);
 
 
     // Compute and write the average density to the file
@@ -228,10 +229,10 @@ void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int 
 
         // quadraticNeighbourSearch(particle, neighbours);
 
-        particle.density = SPHComputations::computeDensity(particle, neighbours);
-        if (SPHComputations::isParticleCompressed(particle.density)) {
+        particle.density = SPHComputationsIISPH::computeDensity(particle, neighbours);
+        if (SPHComputationsIISPH::isParticleCompressed(particle.density)) {
             //printf("denisty: %f", particle.density);
-            particle.pressure = SPHComputations::computePressure(particle.density);
+            particle.pressure = SPHComputationsIISPH::computePressure(particle.density);
         } else {
             particle.pressure = 0;
         }
@@ -248,7 +249,7 @@ void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int 
 
         // quadraticNeighbourSearch(particle, neighbours);
 
-        particle.acceleration = SPHComputations::computeTotalAcceleration(particle, neighbours);
+        particle.acceleration = SPHComputationsIISPH::computeTotalAcceleration(particle, neighbours);
 
         if (particle.position.x < 20 || particle.position.x > x_size_screen - 40 || particle.position.y < 20 || particle.position.y > y_size_screen - 40) {
             m_particles.erase(m_particles.begin() + it);
@@ -256,9 +257,9 @@ void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int 
         it++;
     }
 
-    SPHComputations::advectParticles(particles);
+    SPHComputationsIISPH::advectParticles(particles);
 
-    SPHComputations::isCFLConditionTrue(particles);
+    SPHComputationsIISPH::isCFLConditionTrue(particles);
 }
 
 void ParticleSystem::resetSimulation() {

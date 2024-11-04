@@ -3,7 +3,7 @@
 #include "../include/ParticleSystem.h"
 #include "../include/Grid.h"
 #include "../include/Globals.h"
-#include "../include/Simulation.h"
+#include "../include/SimulationEOS.h"
 
 
 

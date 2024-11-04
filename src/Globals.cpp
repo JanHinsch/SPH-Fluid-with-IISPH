@@ -25,9 +25,14 @@ sf::Vector2f gravity = sf::Vector2f(0.0f, 9.8f);
 
 const float timeStep = 0.01f;
 
-bool EOS_Pressure = false;
+bool EOS_Pressure = true;
 
-bool IISPH_Pressure = true;
+bool IISPH_Pressure = false;
+
+
+// for color gradient
+float speedThreshold1 = 20.0f;  // Blue to Cyan
+float speedThreshold2 = 40.0f;  // Cyan to Green
 
 // unused 
 float gamma_1 = 1.0f; // apparently often between 0.0f and 1.0f

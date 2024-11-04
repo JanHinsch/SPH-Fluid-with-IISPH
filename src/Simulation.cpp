@@ -51,48 +51,6 @@ sf::Vector2f SPHComputations::kernelGradient(sf::Vector2f positionA,sf::Vector2f
     }
 }
 
-// old version
-// float SPHComputations::computeDensity(Particle& particle, std::vector<Particle>& neighbours) {
-//     float density_i = 0.0f;
-//     float density_fluid = 0.0f;
-//     float density_boundary = 0.0f;
-//     for (auto& particle_j : neighbours) {
-//         if (particle_j.isStatic == false) {
-//             float kernel_value = SPHComputations::kernel(particle.position, particle_j.position);
-//             float contribution = particle_j.mass * kernel_value;
-//             density_fluid += contribution;
-//         }
-//         if (particle_j.isStatic == true) {
-//             float kernel_value = SPHComputations::kernel(particle.position, particle_j.position);
-//             float contribution = particle_j.mass * kernel_value;
-//             density_boundary += contribution;
-//         }
-
-//     }
-//     return density_fluid + density_boundary;
-// }
-
-// new version gamma
-// float SPHComputations::computeDensity(Particle& particle, std::vector<Particle>& neighbours) {
-//     float density_i = 0.0f;
-//     for (auto& particle_j : neighbours) {
-//         if (particle_j.isStatic == false) {
-//             float kernel_value = SPHComputations::kernel(particle.position, particle_j.position);
-//             float contribution = particle_j.mass * kernel_value;
-//             density_i += contribution;
-//             //printf("Neighbour Position: (%f, %f), Kernel Value: %f, Contribution to Density: %f\n",
-//             //       particle_j.position.x, particle_j.position.y, kernel_value, contribution);
-//         }
-//         if (particle_j.isStatic == true){
-//             float kernel_value = SPHComputations::kernel(particle.position, particle_j.position);
-//             float contribution = gamma_1 * particle_j.mass * kernel_value;
-//             density_i += contribution;
-//         }
-//     }
-//     return density_i;
-// }
-
-// fixed version
 float SPHComputations::computeDensity(Particle& particle, std::vector<Particle>& neighbours) {
     float density_i = 0.0f;
     for (auto& particle_j : neighbours) {
@@ -102,7 +60,6 @@ float SPHComputations::computeDensity(Particle& particle, std::vector<Particle>&
     }
     return density_i;
 }
-
 
 bool SPHComputations::isParticleCompressed(float density_i) {
     return density_i >= density_rest;
@@ -118,77 +75,6 @@ float SPHComputations::computePressure(float density_i) {
     return pressure_i;
 }
 
-// sf::Vector2f SPHComputations::computePressureAcceleration(Particle& particle_i, std::vector<Particle>& neighbours, float pressure_i) {
-//     sf::Vector2f pressureAcceleration(0.0f, 0.0f);
-//     sf::Vector2f sum(0.0f, 0.0f);
-
-//     for (auto& particle_j : neighbours) {
-//         if (particle_j.isStatic == true) {
-//             sum += kernelGradient(particle_i.position, particle_j.position);
-//             pressureAcceleration += (pressure_i * ((2 * particle_i.mass) / std::pow(particle_i.density, 2))) * sum;
-//         }
-//         pressureAcceleration += particle_j.mass * ((particle_i.pressure / std::pow(particle_i.density, 2)) 
-//                                                     +
-//                                                      (particle_j.pressure / std::pow(particle_j.density, 2)))
-//                                                      * kernelGradient(particle_i.position, particle_j.position);
-
-//     }
-
-//     return -1 * pressureAcceleration;
-// }
-
-// old version
-// sf::Vector2f SPHComputations::computePressureAcceleration(Particle& particle_i, std::vector<Particle>& neighbours, float pressure_i) {
-//     sf::Vector2f pressureAccelerationFluid(0.0f, 0.0f);
-//     sf::Vector2f pressureAccelerationBoundary(0.0f, 0.0f);
-
-//     for (auto& particle_j : neighbours) {
-//         if (particle_j.isStatic == false) {
-//             pressureAccelerationFluid += particle_j.mass * ((particle_i.pressure / std::pow(particle_i.density, 2)) 
-//                                                         +
-//                                                         (particle_j.pressure / std::pow(particle_j.density, 2)))
-//                                                         * kernelGradient(particle_i.position, particle_j.position);
-//         }
-//         if (particle_j.isStatic == true) {
-//             pressureAccelerationBoundary += particle_j.mass * ((particle_i.pressure / std::pow(particle_i.density, 2)) 
-//                                                         +
-//                                                         (particle_j.pressure / std::pow(particle_j.density, 2)))
-//                                                         * kernelGradient(particle_i.position, particle_j.position);
-//         }
-
-//     }
-
-//     return -1 * pressureAccelerationFluid + -1 * pressureAccelerationBoundary;
-
-// }
-
-// new Version with boundary handling gamma
-// sf::Vector2f SPHComputations::computePressureAcceleration(Particle& particle_i, std::vector<Particle>& neighbours, float pressure_i) {
-//     sf::Vector2f pressureAccelerationFluid(0.0f, 0.0f);
-//     sf::Vector2f pressureAccelerationBoundary(0.0f, 0.0f);
-//     sf::Vector2f sumBoundary(0.0f, 0.0f);
-//     sf::Vector2f sumFluid(0.0f, 0.0f);
-
-//     for (auto& particle_j : neighbours) {
-
-//         if (particle_j.isStatic == true) {
-//             sumBoundary += (particle_j.mass * kernelGradient(particle_i.position, particle_j.position));
-//         }
-//         if (particle_j.isStatic == false) {
-//             sumFluid += ((particle_i.pressure / std::pow(particle_i.density, 2)) +
-//                         (particle_j.pressure / std::pow(particle_j.density, 2)))
-//                         * kernelGradient(particle_i.position, particle_j.position);
-//         }
-//     }
-//     pressureAccelerationBoundary = (pressure_i * ((2 * gamma_2) / std::pow(particle_i.density, 2))) * sumBoundary;
-//     pressureAccelerationFluid    = particle_i.mass * sumFluid;
-    
-
-//     return (-pressureAccelerationFluid) - pressureAccelerationBoundary;
-
-// }
-
-// fixed verison
 sf::Vector2f SPHComputations::computePressureAcceleration(Particle& particle_i, std::vector<Particle>& neighbours, float pressure_i) {
     sf::Vector2f pressureAccelerationFluid(0.0f, 0.0f);
     sf::Vector2f pressureAccelerationBoundary(0.0f, 0.0f);
@@ -271,9 +157,6 @@ sf::Vector2f SPHComputations::computeViscosity(Particle& particle_i, std::vector
 
     return (2 * viscosityFactor * sumFluid) + (viscosityFactor * sumBoundary);
 }
-
-
-
 
 sf::Vector2f SPHComputations::computeSurfaceTension(Particle& particle_i, std::vector<Particle>& neighbours) {
     sf::Vector2f sum(0.0f, 0.0f);

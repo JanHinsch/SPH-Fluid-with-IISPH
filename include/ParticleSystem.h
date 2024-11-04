@@ -55,7 +55,9 @@ public:
     // Set start values of simulation (place particles etc.)
     void initiateParticles(std::vector<Particle>& particles);
 
-    void updateParticles(std::vector<Particle>& particles, int x_size_screen, int y_size_screen);
+    void updateParticlesEOS(std::vector<Particle>& particles, int x_size_screen, int y_size_screen);
+
+    void updateParticlesIISPH(std::vector<Particle>& particles, int x_size_screen, int y_size_screen);
 
     void resetSimulation();
 

@@ -25,6 +25,10 @@ sf::Vector2f gravity = sf::Vector2f(0.0f, 9.8f);
 
 const float timeStep = 0.01f;
 
+bool EOS_Pressure = false;
+
+bool IISPH_Pressure = true;
+
 // unused 
 float gamma_1 = 1.0f; // apparently often between 0.0f and 1.0f
 // unused

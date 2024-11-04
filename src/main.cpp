@@ -73,9 +73,13 @@ int main() {
             uiManager.handleEvents(event);
         }
 
-        // Update particles
-        if (!simulationPaused) {
-            particles.updateParticles(particles.m_particles, x_size_screen, y_size_screen);
+        // Update particles with EOS
+        if (!simulationPaused && EOS_Pressure) {
+            particles.updateParticlesEOS(particles.m_particles, x_size_screen, y_size_screen);
+        }
+        // Update particles with EOS
+        if (!simulationPaused && IISPH_Pressure) {
+            particles.updateParticlesIISPH(particles.m_particles, x_size_screen, y_size_screen);
         }
 
         // Update vertices based on new particle positions

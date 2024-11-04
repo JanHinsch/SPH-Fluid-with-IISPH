@@ -125,7 +125,8 @@ void ParticleSystem::initiateParticles(std::vector<Particle>& particles) {
 
 // int countDir = 0; // for moveable boundary 
 
-void ParticleSystem::updateParticles(std::vector<Particle>& particles, int x_size_screen, int y_size_screen) {
+// Simulation Step of solver with EOS
+void ParticleSystem::updateParticlesEOS(std::vector<Particle>& particles, int x_size_screen, int y_size_screen) {
 
     /////////// Index search
     // Calculate the total number of cells in the grid and initialize C
@@ -133,7 +134,7 @@ void ParticleSystem::updateParticles(std::vector<Particle>& particles, int x_siz
 
     // Index Search
     // for neighbor search assign particle to a cell
-    for (auto& p : particles) {        
+    for (auto& p : particles) {
         int cellIndex = getCellIndex(p.position);
         C[cellIndex]++;
     }
@@ -150,7 +151,7 @@ void ParticleSystem::updateParticles(std::vector<Particle>& particles, int x_siz
         iterateNeighbours(particle, neighbours);
 
         // quadraticNeighbourSearch(particle, neighbours);
-        
+
         particle.density = SPHComputations::computeDensity(particle, neighbours);
         if (SPHComputations::isParticleCompressed(particle.density)) {
             //printf("denisty: %f", particle.density);
@@ -198,9 +199,67 @@ void ParticleSystem::updateParticles(std::vector<Particle>& particles, int x_siz
     // countDir++;
     // moveBoundaryParticles(particles, 5.5, 5.5, switchDir);
     // rotateBoundaryParticles(particles, 320, 482, 0.9f);
-
 }
 
+// Simulation Step of solver with IISPH
+void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int x_size_screen, int y_size_screen) {
+
+    /////////// Index search
+    // Calculate the total number of cells in the grid and initialize C
+    C.clear();
+
+    // Index Search
+    // for neighbor search assign particle to a cell
+    for (auto& p : particles) {
+        int cellIndex = getCellIndex(p.position);
+        C[cellIndex]++;
+    }
+    L = generateSortedList(particles);
+    //////////////////////
+
+    std::vector<Particle> neighbours;
+
+    // compute density and pressure
+    for (auto& particle : particles) {
+        // if (particle.isStatic) continue;
+        neighbours.clear();
+
+        iterateNeighbours(particle, neighbours);
+
+        // quadraticNeighbourSearch(particle, neighbours);
+
+        particle.density = SPHComputations::computeDensity(particle, neighbours);
+        if (SPHComputations::isParticleCompressed(particle.density)) {
+            //printf("denisty: %f", particle.density);
+            particle.pressure = SPHComputations::computePressure(particle.density);
+        } else {
+            particle.pressure = 0;
+        }
+        // if (particle.isStatic == false )printf("density_i: %f", particle.density);
+    }
+
+    // compute accelerations and remove out of bounds
+    int it = 0;
+    for (auto& particle : particles) {
+        if (particle.isStatic) continue;
+        neighbours.clear();
+
+        iterateNeighbours(particle, neighbours);
+
+        // quadraticNeighbourSearch(particle, neighbours);
+
+        particle.acceleration = SPHComputations::computeTotalAcceleration(particle, neighbours);
+
+        if (particle.position.x < 20 || particle.position.x > x_size_screen - 40 || particle.position.y < 20 || particle.position.y > y_size_screen - 40) {
+            m_particles.erase(m_particles.begin() + it);
+        }
+        it++;
+    }
+
+    SPHComputations::advectParticles(particles);
+
+    SPHComputations::isCFLConditionTrue(particles);
+}
 
 void ParticleSystem::resetSimulation() {
     

@@ -22,6 +22,10 @@ extern sf::Vector2f gravity;
 
 extern const float timeStep;
 
+extern bool EOS_Pressure;
+
+extern bool IISPH_Pressure;
+
 extern float gamma_1;
 
 extern float gamma_2;

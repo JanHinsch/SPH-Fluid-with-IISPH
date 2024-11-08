@@ -30,6 +30,8 @@ extern float gamma_1;
 
 extern float gamma_2;
 
+extern float omega;
+
 extern bool CFLCondition;
 
 extern const float cellSize;
@@ -118,9 +120,13 @@ inline sf::Vector2f operator/(const sf::Vector2f& lhs, const sf::Vector2f& rhs) 
     return sf::Vector2f(lhs.x / rhs.x, lhs.y / rhs.y);
 }
 
+// Function to calculate the dot product of two sf::Vector2f
+inline float dotProduct(const sf::Vector2f& lhs, const sf::Vector2f& rhs) {
+    return lhs.x * rhs.x + lhs.y * rhs.y;
+}
+
 float euclideanDistance(const sf::Vector2f& positionA, const sf::Vector2f& positionB);
 
 void writeGlobalsToFile(const std::string& filename);
-
 
 #endif // GLOBALS_H

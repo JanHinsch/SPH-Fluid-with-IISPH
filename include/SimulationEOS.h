@@ -12,19 +12,19 @@ public:
     static float kernel(sf::Vector2f positionA, sf::Vector2f positionB);
     static sf::Vector2f kernelGradient(sf::Vector2f positionA, sf::Vector2f positionB);
 
-    static float computeDensity(Particle& particle, std::vector<Particle>& neighbours);
+    static float computeDensity(Particle& particle, std::vector<Particle*>& neighbours);
 
     static bool isParticleCompressed(float density_i);
 
     static float computePressure(float density_i);
 
-    static sf::Vector2f computePressureAcceleration(Particle& particle, std::vector<Particle>& neighbours, float pressure_i);
+    static sf::Vector2f computePressureAcceleration(Particle& particle, std::vector<Particle*>& neighbours, float pressure_i);
 
-    static sf::Vector2f computeViscosity(Particle& particle_i, std::vector<Particle>& neighbours);
+    static sf::Vector2f computeViscosity(Particle& particle_i, std::vector<Particle*>& neighbours);
 
-    static sf::Vector2f computeSurfaceTension(Particle &particle_i, std::vector<Particle> &neighbours);
+    static sf::Vector2f computeSurfaceTension(Particle &particle_i, std::vector<Particle*> &neighbours);
 
-    static sf::Vector2f computeTotalAcceleration(Particle& particle, std::vector<Particle>& neighbours);
+    static sf::Vector2f computeTotalAcceleration(Particle& particle, std::vector<Particle*>& neighbours);
 
     static void advectParticles(std::vector<Particle> &particles);
 

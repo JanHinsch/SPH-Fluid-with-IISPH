@@ -51,11 +51,11 @@ sf::Vector2f SPHComputationsEOS::kernelGradient(sf::Vector2f positionA,sf::Vecto
     }
 }
 
-float SPHComputationsEOS::computeDensity(Particle& particle, std::vector<Particle>& neighbours) {
+float SPHComputationsEOS::computeDensity(Particle& particle, std::vector<Particle*>& neighbours) {
     float density_i = 0.0f;
     for (auto& particle_j : neighbours) {
-        float kernel_value = SPHComputationsEOS::kernel(particle.position, particle_j.position);
-        float contribution = particle_j.mass * kernel_value;
+        float kernel_value = SPHComputationsEOS::kernel(particle.position, particle_j->position);
+        float contribution = particle_j->mass * kernel_value;
         density_i += contribution;
     }
     return density_i;
@@ -75,21 +75,21 @@ float SPHComputationsEOS::computePressure(float density_i) {
     return pressure_i;
 }
 
-sf::Vector2f SPHComputationsEOS::computePressureAcceleration(Particle& particle_i, std::vector<Particle>& neighbours, float pressure_i) {
+sf::Vector2f SPHComputationsEOS::computePressureAcceleration(Particle& particle_i, std::vector<Particle*>& neighbours, float pressure_i) {
     sf::Vector2f pressureAccelerationFluid(0.0f, 0.0f);
     sf::Vector2f pressureAccelerationBoundary(0.0f, 0.0f);
 
     for (auto& particle_j : neighbours) {
-        if (particle_j.isStatic == false) {
+        if (particle_j->isStatic == false) {
             pressureAccelerationFluid += particle_i.mass * ((particle_i.pressure / std::pow(particle_i.density, 2)) 
                                                         +
-                                                        (particle_j.pressure / std::pow(particle_j.density, 2)))
-                                                        * kernelGradient(particle_i.position, particle_j.position);
+                                                        (particle_j->pressure / std::pow(particle_j->density, 2)))
+                                                        * kernelGradient(particle_i.position, particle_j->position);
 
         }
-        if (particle_j.isStatic == true) {
+        if (particle_j->isStatic == true) {
             pressureAccelerationFluid += particle_i.pressure * ((2 * particle_i.mass)/(std::pow(particle_i.density,2))) 
-                                        * kernelGradient(particle_i.position, particle_j.position);
+                                        * kernelGradient(particle_i.position, particle_j->position);
         }
     }
 
@@ -133,37 +133,37 @@ sf::Vector2f SPHComputationsEOS::computePressureAcceleration(Particle& particle_
 // }
 
 // fixed version
-sf::Vector2f SPHComputationsEOS::computeViscosity(Particle& particle_i, std::vector<Particle>& neighbours) {
+sf::Vector2f SPHComputationsEOS::computeViscosity(Particle& particle_i, std::vector<Particle*>& neighbours) {
     sf::Vector2f sumFluid(0.0f, 0.0f);
     sf::Vector2f sumBoundary(0.0f, 0.0f);
     for (auto& particle_j : neighbours) {
-        if (particle_j.isStatic == false) {
-            sf::Vector2f v_diff = particle_i.velocity - particle_j.velocity;
-            sf::Vector2f x_diff = particle_i.position - particle_j.position;
+        if (particle_j->isStatic == false) {
+            sf::Vector2f v_diff = particle_i.velocity - particle_j->velocity;
+            sf::Vector2f x_diff = particle_i.position - particle_j->position;
 
-            sumFluid += (particle_j.mass / particle_j.density) 
+            sumFluid += (particle_j->mass / particle_j->density)
                     * ((v_diff * x_diff)/(x_diff * x_diff + 0.01f * std::pow((h),2)))
-                    * kernelGradient(particle_i.position, particle_j.position);
+                    * kernelGradient(particle_i.position, particle_j->position);
         }
-        if (particle_j.isStatic == true) {
-            sf::Vector2f v_diff = particle_i.velocity - particle_j.velocity;
-            sf::Vector2f x_diff = particle_i.position - particle_j.position;
+        if (particle_j->isStatic == true) {
+            sf::Vector2f v_diff = particle_i.velocity - particle_j->velocity;
+            sf::Vector2f x_diff = particle_i.position - particle_j->position;
 
-            sumBoundary += (particle_j.mass / particle_j.density) 
+            sumBoundary += (particle_j->mass / particle_j->density)
                     * ((v_diff * x_diff)/(x_diff * x_diff + 0.01f * std::pow((h),2)))
-                    * kernelGradient(particle_i.position, particle_j.position);
+                    * kernelGradient(particle_i.position, particle_j->position);
         }
     }
 
     return (2 * viscosityFactor * sumFluid) + (viscosityFactor * sumBoundary);
 }
 
-sf::Vector2f SPHComputationsEOS::computeSurfaceTension(Particle& particle_i, std::vector<Particle>& neighbours) {
+sf::Vector2f SPHComputationsEOS::computeSurfaceTension(Particle& particle_i, std::vector<Particle*>& neighbours) {
     sf::Vector2f sum(0.0f, 0.0f);
 
     for (auto& particle_j : neighbours) {
-        if (particle_j.isStatic == false) {
-            sum += kernelGradient(particle_i.position, particle_j.position); 
+        if (particle_j->isStatic == false) {
+            sum += kernelGradient(particle_i.position, particle_j->position);
         }
     }
     if (sum != sf::Vector2f(0.0f, 0.0f)) {
@@ -173,7 +173,7 @@ sf::Vector2f SPHComputationsEOS::computeSurfaceTension(Particle& particle_i, std
     }
 }
 
-sf::Vector2f SPHComputationsEOS::computeTotalAcceleration(Particle& particle, std::vector<Particle>& neighbours) {
+sf::Vector2f SPHComputationsEOS::computeTotalAcceleration(Particle& particle, std::vector<Particle*>& neighbours) {
     sf::Vector2f pressureAcceleration = computePressureAcceleration(particle, neighbours, particle.pressure);
     sf::Vector2f viscosityAcceleration = computeViscosity(particle, neighbours);
 

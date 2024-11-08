@@ -24,7 +24,7 @@ public:
     int getCellCoords(int x, int y);
     void accumulateCounters();
 
-    void iterateNeighbours(Particle& particle, std::vector<Particle>& m_neighbours);
+    void iterateNeighbours(Particle& particle, std::vector<Particle*>& m_neighbours);
 
     bool inRadius(sf::Vector2f positionA, sf::Vector2f positionB, float radius=kernelSupport);
 

@@ -52,119 +52,197 @@ sf::Vector2f SPHComputationsIISPH::kernelGradient(sf::Vector2f positionA,sf::Vec
     }
 }
 
-float SPHComputationsIISPH::computeDensity(Particle& particle, std::vector<Particle>& neighbours) {
+float SPHComputationsIISPH::computeDensity(Particle &particle_i, std::vector<Particle*> &neighbours) {
     float density_i = 0.0f;
     for (auto& particle_j : neighbours) {
-        float kernel_value = SPHComputationsIISPH::kernel(particle.position, particle_j.position);
-        float contribution = particle_j.mass * kernel_value;
-        density_i += contribution;
+        density_i += particle_j->mass * kernel(particle_i.position, particle_j->position);
     }
     return density_i;
 }
 
-bool SPHComputationsIISPH::isParticleCompressed(float density_i) {
-    return density_i >= density_rest;
+sf::Vector2f SPHComputationsIISPH::predictVelocity(Particle& particle_i) {
+    sf::Vector2f non_pressure_acc = computeViscosity(particle_i)
+                                    + gravity;
+    non_pressure_acc *= timeStep;
+    return particle_i.velocity + non_pressure_acc;
 }
 
-float SPHComputationsIISPH::computePressure(float density_i) {
-    float pressure_i;
-    pressure_i = stiffness_constant_k *(std::pow((density_i/density_rest),7) -1);
-    // pressure_i = stiffness_constant_k *((density_i/density_rest) -1);
-    if (pressure_i < 0) {
-        return 0;
-    }
-    return pressure_i;
-}
+float SPHComputationsIISPH::computeSourceTerm(Particle& particle_i) {
+    float source_term = density_rest - particle_i.density;
+    float fluidSum = 0.0f;
+    float boundarySum = 0.0f;
 
-sf::Vector2f SPHComputationsIISPH::computePressureAcceleration(Particle& particle_i, std::vector<Particle>& neighbours, float pressure_i) {
-    sf::Vector2f pressureAccelerationFluid(0.0f, 0.0f);
-    sf::Vector2f pressureAccelerationBoundary(0.0f, 0.0f);
-
-    for (auto& particle_j : neighbours) {
-        if (particle_j.isStatic == false) {
-            pressureAccelerationFluid += particle_i.mass * ((particle_i.pressure / std::pow(particle_i.density, 2))
-                                                        +
-                                                        (particle_j.pressure / std::pow(particle_j.density, 2)))
-                                                        * kernelGradient(particle_i.position, particle_j.position);
-
-        }
-        if (particle_j.isStatic == true) {
-            pressureAccelerationFluid += particle_i.pressure * ((2 * particle_i.mass)/(std::pow(particle_i.density,2)))
-                                        * kernelGradient(particle_i.position, particle_j.position);
+    for (auto& particle_j : particle_i.particle_neighbours) {
+        // if boundaries should move as well with flow change here the 0 term
+        if (particle_j->isStatic) {
+            boundarySum += dotProduct((particle_i.predicted_velocity - 0), kernelGradient(particle_i.position, particle_j->position))
+                            * particle_j->mass;
+        } else {
+            fluidSum += dotProduct((particle_i.predicted_velocity - particle_j->predicted_velocity),kernelGradient(particle_i.position, particle_j->position))
+                            * particle_j->mass;
         }
     }
-
-    return - pressureAccelerationFluid - pressureAccelerationBoundary;
+    fluidSum *= timeStep;
+    boundarySum *= timeStep;
+    return source_term - fluidSum - boundarySum;
 }
 
-
-// old version viscosity also at boundary
-// sf::Vector2f SPHComputations::computeViscosity(Particle& particle_i, std::vector<Particle>& neighbours) {
-//     sf::Vector2f sum(0.0f, 0.0f);
-//     for (auto& particle_j : neighbours) {
-//         sf::Vector2f v_diff = particle_i.velocity - particle_j.velocity;
-//         sf::Vector2f x_diff = particle_i.position - particle_j.position;
-
-//         sum += (particle_j.mass / particle_j.density)
-//                 * ((v_diff * x_diff)/(x_diff * x_diff + 0.01f * std::pow((h),2)))
-//                 * kernelGradient(particle_i.position, particle_j.position);
+// test version
+// float SPHComputationsIISPH::computeSourceTerm(Particle& particle_i) {
+//     float source_term = density_rest - particle_i.density;
+//
+//     for (auto& particle_j : particle_i.particle_neighbours) {
+//         sf::Vector2f velocity_difference(0.0f, 0.0f);
+//
+//         if (particle_j->isStatic) {
+//             // Boundary particles: velocity difference with stationary velocity (0)
+//             velocity_difference = particle_i.predicted_velocity;
+//         } else {
+//             // Fluid particles: velocity difference with neighbor's predicted velocity
+//             velocity_difference = particle_i.predicted_velocity - particle_j->predicted_velocity;
+//         }
+//
+//         // Kernel gradient between particle i and neighbor j
+//         sf::Vector2f grad = kernelGradient(particle_i.position, particle_j->position);
+//
+//         // Dot product between velocity difference and gradient
+//         float dot_product = velocity_difference.x * grad.x + velocity_difference.y * grad.y;
+//
+//         // Update source term
+//         source_term -= timeStep * particle_j->mass * dot_product;
 //     }
-
-//     printf("sum: %f %f\n", sum.x, sum.y);
-
-//     return 2 * viscosityFactor * sum;
+//
+//     return source_term;
 // }
 
-// new version as test boundary no visco
-// sf::Vector2f SPHComputations::computeViscosity(Particle& particle_i, std::vector<Particle>& neighbours) {
-//     sf::Vector2f sum(0.0f, 0.0f);
+// as in notesOnIISPH
+float SPHComputationsIISPH::computeDiagonalElement(Particle& particle_i) {
+    float firstLine = 0.0f;
+    float secondLine = 0.0f;
+    float thirdLine = 0.0f;
+    sf::Vector2f innerSum1(0.0f, 0.0f);
+    sf::Vector2f innerSum2(0.0f, 0.0f);
+    sf::Vector2f innerSum3(0.0f, 0.0f);
+    float timeStepSq = timeStep * timeStep;
+    float densityRestSq = density_rest * density_rest;
 
-//     for (auto& particle_j : neighbours) {
-//         if (particle_j.isStatic == false) {
-//             sf::Vector2f v_diff = particle_i.velocity - particle_j.velocity;
-//             sf::Vector2f x_diff = particle_i.position - particle_j.position;
+    for (auto& particle_j : particle_i.particle_neighbours) {
 
-//             sum += (particle_j.mass / particle_j.density)
-//                     * ((v_diff * x_diff)/(x_diff * x_diff + std::pow((0.01*h),2)))
-//                     * kernelGradient(particle_i.position, particle_j.position);
-//             }
-//     }
+        // first term
+        if (particle_j->isStatic == false) {
+            for (auto& particle_j_j : particle_j->particle_neighbours) {
+                if (particle_j_j->isStatic == false) {
+                    innerSum1 -= (particle_j_j->mass / densityRestSq) * kernelGradient(particle_i.position, particle_j_j->position);
+                } else {
+                    innerSum1 -= 2 * gamma_1 *(particle_j_j->mass / densityRestSq) * kernelGradient(particle_i.position, particle_j_j->position);
+                }
+            }
+            sf::Vector2f kernelG1 = kernelGradient(particle_i.position, particle_j->position);
+            float dot_product1 = innerSum1.x * kernelG1.x + innerSum1.y * kernelG1.y;
+            firstLine += particle_j->mass * dot_product1 * timeStepSq;
 
-//     return 2 * viscosityFactor * sum;
-// }
+            // second term
+            innerSum2 += particle_j->mass * (particle_i.mass / densityRestSq) * kernelGradient(particle_j->position, particle_i.position);
+            sf::Vector2f kernelG2 = kernelGradient(particle_i.position, particle_j->position);
+            float dotProduct2 = innerSum2.x * kernelG2.x + innerSum2.x * kernelG2.y;
+            secondLine += particle_j->mass * dotProduct2 * densityRestSq;
+
+        } else {
+
+            // third term
+            for (auto& particle_j_j : particle_j->particle_neighbours) {
+                if (particle_j_j->isStatic == false) {
+                    innerSum3 -= (particle_j_j->mass / densityRestSq) * kernelGradient(particle_i.position, particle_j_j->position);
+                } else {
+                    innerSum3 -= 2 * gamma_1 *(particle_j_j->mass / densityRestSq) * kernelGradient(particle_i.position, particle_j_j->position);
+                }
+            }
+            sf::Vector2f kernelG3 = kernelGradient(particle_i.position, particle_j->position);
+            float dot_product3 = innerSum3.x * kernelG3.x + innerSum3.y * kernelG3.y;
+            thirdLine += particle_j->mass * dot_product3 * timeStepSq;
+        }
+    }
+    return firstLine + secondLine + thirdLine;
+}
+
+sf::Vector2f SPHComputationsIISPH::computePressureAcceleration(Particle &particle_i) {
+    sf::Vector2f pressure_acc(0.0f, 0.0f);
+    float densityRestSq = density_rest * density_rest;
+
+    for (auto& particle_j : particle_i.particle_neighbours) {
+        if (particle_j->isStatic == false) {
+            pressure_acc -= particle_j->mass * (particle_i.pressure/densityRestSq) + (particle_j->pressure/densityRestSq)
+                            * kernelGradient(particle_i.position, particle_j->position);
+        } else {
+            pressure_acc -= gamma_1 * particle_j->mass * (particle_i.pressure/densityRestSq)
+                            * kernelGradient(particle_i.position, particle_j->position);
+        }
+    }
+    return pressure_acc;
+}
+
+// compute the divergence of the velocity change due to pressure acc (Laplacian)
+float SPHComputationsIISPH::computeDivergence(Particle &particle_i) {
+    float Ap= 0.0f;
+    float timeStepSq = timeStep * timeStep;
+    for (auto& particle_j : particle_i.particle_neighbours) {
+        if (particle_j->isStatic) {
+            sf::Vector2f kernelG1 = kernelGradient(particle_i.position, particle_j->position);
+            float dotProduct1 =  particle_j->acceleration.x * kernelG1.x + particle_j->acceleration.y * kernelG1.y;
+            Ap += particle_j->mass * timeStepSq * dotProduct1;
+        } else {
+            sf::Vector2f kernelG2 = kernelGradient(particle_i.position, particle_j->position);
+            sf::Vector2f innerSub = particle_i.acceleration - particle_j->acceleration;
+            float dotProduct2 = innerSub.x * kernelG2.x + innerSub.y * kernelG2.y;
+            Ap += particle_j->mass * timeStepSq * dotProduct2;
+        }
+    }
+    return Ap;
+}
+
+float SPHComputationsIISPH::updatePressure(Particle &particle_i) {
+    float pressure = omega * ((particle_i.sourceTerm - particle_i.laplacian) / particle_i.diagonalElement) + particle_i.
+                     pressure;
+    if (pressure < 0) {
+        return 0.0f;
+    } else {
+        return pressure;
+    }
+}
+
 
 // fixed version
-sf::Vector2f SPHComputationsIISPH::computeViscosity(Particle& particle_i, std::vector<Particle>& neighbours) {
+sf::Vector2f SPHComputationsIISPH::computeViscosity(Particle& particle_i) {
     sf::Vector2f sumFluid(0.0f, 0.0f);
     sf::Vector2f sumBoundary(0.0f, 0.0f);
-    for (auto& particle_j : neighbours) {
-        if (particle_j.isStatic == false) {
-            sf::Vector2f v_diff = particle_i.velocity - particle_j.velocity;
-            sf::Vector2f x_diff = particle_i.position - particle_j.position;
+    for (auto& particle_j : particle_i.particle_neighbours) {
+        if (particle_j->isStatic == false) {
+            sf::Vector2f v_diff = particle_i.velocity - particle_j->velocity;
+            sf::Vector2f x_diff = particle_i.position - particle_j->position;
 
-            sumFluid += (particle_j.mass / particle_j.density)
+            sumFluid += (particle_j->mass / particle_j->density)
                     * ((v_diff * x_diff)/(x_diff * x_diff + 0.01f * std::pow((h),2)))
-                    * kernelGradient(particle_i.position, particle_j.position);
+                    * kernelGradient(particle_i.position, particle_j->position);
         }
-        if (particle_j.isStatic == true) {
-            sf::Vector2f v_diff = particle_i.velocity - particle_j.velocity;
-            sf::Vector2f x_diff = particle_i.position - particle_j.position;
+        if (particle_j->isStatic == true) {
+            sf::Vector2f v_diff = particle_i.velocity - particle_j->velocity;
+            sf::Vector2f x_diff = particle_i.position - particle_j->position;
 
-            sumBoundary += (particle_j.mass / particle_j.density)
+            sumBoundary += (particle_j->mass / particle_j->density)
                     * ((v_diff * x_diff)/(x_diff * x_diff + 0.01f * std::pow((h),2)))
-                    * kernelGradient(particle_i.position, particle_j.position);
+                    * kernelGradient(particle_i.position, particle_j->position);
         }
     }
 
     return (2 * viscosityFactor * sumFluid) + (viscosityFactor * sumBoundary);
 }
 
-sf::Vector2f SPHComputationsIISPH::computeSurfaceTension(Particle& particle_i, std::vector<Particle>& neighbours) {
+sf::Vector2f SPHComputationsIISPH::computeSurfaceTension(Particle& particle_i) {
     sf::Vector2f sum(0.0f, 0.0f);
 
-    for (auto& particle_j : neighbours) {
-        if (particle_j.isStatic == false) {
-            sum += kernelGradient(particle_i.position, particle_j.position);
+    for (auto& particle_j : particle_i.particle_neighbours) {
+        if (particle_j->isStatic == false) {
+            sum += kernelGradient(particle_i.position, particle_j->position);
         }
     }
     if (sum != sf::Vector2f(0.0f, 0.0f)) {
@@ -174,11 +252,11 @@ sf::Vector2f SPHComputationsIISPH::computeSurfaceTension(Particle& particle_i, s
     }
 }
 
-sf::Vector2f SPHComputationsIISPH::computeTotalAcceleration(Particle& particle, std::vector<Particle>& neighbours) {
-    sf::Vector2f pressureAcceleration = computePressureAcceleration(particle, neighbours, particle.pressure);
-    sf::Vector2f viscosityAcceleration = computeViscosity(particle, neighbours);
+sf::Vector2f SPHComputationsIISPH::computeTotalAcceleration(Particle& particle) {
+    sf::Vector2f pressureAcceleration = computePressureAcceleration(particle);
+    sf::Vector2f viscosityAcceleration = computeViscosity(particle);
 
-    sf::Vector2f surfaceTension = computeSurfaceTension(particle, neighbours);
+    sf::Vector2f surfaceTension = computeSurfaceTension(particle);
 
     sf::Vector2f totalAcceleration = pressureAcceleration + viscosityAcceleration + gravity + surfaceTension * surfaceTensionFactor;
 
@@ -191,6 +269,8 @@ void SPHComputationsIISPH::advectParticles(std::vector<Particle>& particles) {
             continue;
         }
         particle.velocity = particle.velocity + timeStep * particle.acceleration;
+        // or maybe
+        // particle.velocity = timeStep * particle.acceleration + particle.predicted_velocity;
         particle.position = particle.position + timeStep * particle.velocity;
     }
 }

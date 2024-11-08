@@ -18,6 +18,12 @@ struct Particle {
     bool isMovableBoundary = false;
 
     sf::Color color = sf::Color(255, 255, 0, 255); // default yellow
+
+    std::vector<Particle*> particle_neighbours;
+    sf::Vector2f predicted_velocity;
+    float sourceTerm;
+    float diagonalElement;
+    float laplacian;
 };
 
 #endif // PARTICLE_H

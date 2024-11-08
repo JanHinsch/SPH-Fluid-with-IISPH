@@ -10,11 +10,7 @@
 #include "ParticleSystem.h"
 
 ParticleSystem::ParticleSystem(unsigned int count) : m_particles(count), C(numCellsX, numCellsY), L(m_particles.size() +
-                                                                                                     200 * 6 +
-                                                                                                     30 * 1 +
-                                                                                                     80 * 4 +
-                                                                                                     113 * 2 +
-                                                                                                     400 * 2
+                                                                                                     200 * 6
                                                                                                      ) {}
 
 ////////////////////// Simulation Part ////////////////////////////
@@ -28,69 +24,47 @@ void ParticleSystem::initiateParticles(std::vector<Particle>& particles) {
     // addBox(100);
     //resetSimulation();
 
+
+    ///////////////////////////// Test Setting //////////////////////////////////////////
+
     // bottom Boundary
     addBoundaries(200, 320, 662); // short bottom
     addBoundaries(200, 320, 664); // short bottom
 
     // left boundary
-    addBoundaries2(200, 320, 264);
-    addBoundaries2(200, 318, 264);
-
+    addBoundaries2(200, 420, 264);
+    addBoundaries2(200, 418, 264);
 
     // right boundary
-    addBoundaries2(200, 718, 264);
-    addBoundaries2(200, 720, 264);
+    addBoundaries2(200, 618, 264);
+    addBoundaries2(200, 620, 264);
 
+    ///////////////////////////// Half Circle with Triangle Setting /////////////////////
 
-    // top boundary
-    // addBoundaries(128, 448, 404);
-
-    // moving boundaries
-    // addMovingBoundaries(30, 320, 452);
-
-    // labyrinth
-    // addBoundariesWithAngle(150, 320, 314, 22.0f);
-    // addBoundaries(93, 320, 389);
-
-    // addBoundariesWithAngle(150, 718, 414, 158.0f); 
-    // addBoundaries(93, 534, 389);
-
-    // triangle
-    addBoundariesWithAngle(80, 520, 414, 45.0f);
-    addBoundariesWithAngle(80, 520, 414, 135.0f);
-    addBoundaries(113, 408, 527);
-
-    addBoundariesWithAngle(80, 520, 416, 45.0f);
-    addBoundariesWithAngle(80, 520, 416, 135.0f);
-    addBoundaries(113, 408, 525);
-
-    // addBoundariesWithAngle(20, 520, 484, 45.0f);
-    // addBoundariesWithAngle(20, 520, 484, 135.0f);
-    // addBoundaries(29, 492, 482);
-
-    // addBoundariesWithAngle(20, 420, 484, 45.0f);
-    // addBoundariesWithAngle(20, 420, 484, 135.0f);
-    // addBoundaries(29, 392, 512);
-
-    // addBoundariesWithAngle(20, 620, 484, 45.0f);
-    // addBoundariesWithAngle(20, 620, 484, 135.0f);
-    // addBoundaries(29, 592, 512);
-
-
-    addBoundariesInHalfCircle(400,519, 446, 199.0f, 0.0f);
-    addBoundariesInHalfCircle(400,519, 448, 199.0f, 0.0f);
-
-
-    // addBoundaries(40, 480, 454);
-    
-    // addBoundaries2(20, 439, 414);
-    // addBoundaries2(20, 480, 454);
-    // addBoundaries2(20, 560, 454);
-    // addBoundaries2(20, 600, 414);
-
-
-    // addBoundariesWithAngle(65, 716 + h, 364, 157.0f);
-    // addBoundariesWithAngle(65, 320, 364, 22.0f);
+    // // bottom Boundary
+    // addBoundaries(200, 320, 662); // short bottom
+    // addBoundaries(200, 320, 664); // short bottom
+    //
+    // // left boundary
+    // addBoundaries2(200, 320, 264);
+    // addBoundaries2(200, 318, 264);
+    //
+    // // right boundary
+    // addBoundaries2(200, 718, 264);
+    // addBoundaries2(200, 720, 264);
+    //
+    // // triangle
+    // addBoundariesWithAngle(80, 520, 414, 45.0f);
+    // addBoundariesWithAngle(80, 520, 414, 135.0f);
+    // addBoundaries(113, 408, 527);
+    //
+    // addBoundariesWithAngle(80, 520, 416, 45.0f);
+    // addBoundariesWithAngle(80, 520, 416, 135.0f);
+    // addBoundaries(113, 408, 525);
+    //
+    //
+    // addBoundariesInHalfCircle(400,519, 446, 199.0f, 0.0f);
+    // addBoundariesInHalfCircle(400,519, 448, 199.0f, 0.0f);
 
     ///////////////////////////// Analyse /////////////////////
 
@@ -142,7 +116,7 @@ void ParticleSystem::updateParticlesEOS(std::vector<Particle>& particles, int x_
     L = generateSortedList(particles);
     //////////////////////
 
-    std::vector<Particle> neighbours;
+    std::vector<Particle*> neighbours;
 
     // compute density and pressure
     for (auto& particle : particles) {
@@ -205,61 +179,107 @@ void ParticleSystem::updateParticlesEOS(std::vector<Particle>& particles, int x_
 // Simulation Step of solver with IISPH
 void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int x_size_screen, int y_size_screen) {
 
-    /////////// Index search
-    // Calculate the total number of cells in the grid and initialize C
-    C.clear();
+     /////////// Index search
+     // Calculate the total number of cells in the grid and initialize C
+     C.clear();
 
-    // Index Search
-    // for neighbor search assign particle to a cell
-    for (auto& p : particles) {
-        int cellIndex = getCellIndex(p.position);
-        C[cellIndex]++;
-    }
-    L = generateSortedList(particles);
-    //////////////////////
+     // Index Search
+     // for neighbor search assign particle to a cell
+     for (auto& p : particles) {
+         int cellIndex = getCellIndex(p.position);
+         C[cellIndex]++;
+     }
+     L = generateSortedList(particles);
+     ////////////////////
 
-    std::vector<Particle> neighbours;
+     //printf("moin1");
 
-    // compute density and pressure
-    for (auto& particle : particles) {
-        // if (particle.isStatic) continue;
-        neighbours.clear();
 
-        iterateNeighbours(particle, neighbours);
+     // std::vector<Particle> neighbours;
 
-        // quadraticNeighbourSearch(particle, neighbours);
+     // compute density as in notesOnIISPH
+     for (auto& particle : particles) {
+         particle.particle_neighbours.clear();
+         iterateNeighbours(particle, particle.particle_neighbours);
 
-        particle.density = SPHComputationsIISPH::computeDensity(particle, neighbours);
-        if (SPHComputationsIISPH::isParticleCompressed(particle.density)) {
-            //printf("denisty: %f", particle.density);
-            particle.pressure = SPHComputationsIISPH::computePressure(particle.density);
-        } else {
-            particle.pressure = 0;
-        }
-        // if (particle.isStatic == false )printf("density_i: %f", particle.density);
-    }
+         particle.density = SPHComputationsIISPH::computeDensity(particle, particle.particle_neighbours);
+     }
 
-    // compute accelerations and remove out of bounds
-    int it = 0;
-    for (auto& particle : particles) {
-        if (particle.isStatic) continue;
-        neighbours.clear();
+     //printf("moin2");
 
-        iterateNeighbours(particle, neighbours);
+     // compute non-pressure accelerations and predicted velocity
+     for (auto& particle : particles) {
+         if (particle.isStatic) continue;
+         // particle.particle_neighbours.clear();
+         // iterateNeighbours(particle, particle.particle_neighbours);
 
-        // quadraticNeighbourSearch(particle, neighbours);
+         particle.predicted_velocity = SPHComputationsIISPH::predictVelocity(particle);
+     }
 
-        particle.acceleration = SPHComputationsIISPH::computeTotalAcceleration(particle, neighbours);
+     //printf("moin3");
 
-        if (particle.position.x < 20 || particle.position.x > x_size_screen - 40 || particle.position.y < 20 || particle.position.y > y_size_screen - 40) {
-            m_particles.erase(m_particles.begin() + it);
-        }
-        it++;
-    }
+     // compute source term and diagonal element
+     for (auto& particle : particles) {
 
-    SPHComputationsIISPH::advectParticles(particles);
+         particle.sourceTerm = SPHComputationsIISPH::computeSourceTerm(particle);
+         particle.diagonalElement = SPHComputationsIISPH::computeDiagonalElement(particle);
 
-    SPHComputationsIISPH::isCFLConditionTrue(particles);
+         particle.pressure = 0;
+     }
+
+     //printf("moin4");
+
+     int iterations_l = 0;
+     float density_error = 100.0f;
+
+     while (density_error > 0.1f || iterations_l < 10) {
+         // first loop compute pressure acc
+         for (auto& particle : particles) {
+
+             particle.acceleration = SPHComputationsIISPH::computePressureAcceleration(particle);
+         }
+
+         // second loop
+         float density_error_sum = 0.0f;
+         for (auto& particle : particles) {
+
+             particle.laplacian = SPHComputationsIISPH::computeDivergence(particle);
+
+             // update pressure if A_ff != 0
+             if (particle.diagonalElement != 0) {
+                 particle.pressure = SPHComputationsIISPH::updatePressure(particle);
+             }
+
+             // compute predicted density error per particle  !!!hier maybe abs verwenden und maybe nicht / restdensity !!!!
+             density_error_sum = (particle.laplacian - particle.sourceTerm) / density_rest;
+         }
+
+         density_error = density_error_sum / particles.size();
+         iterations_l++;
+         //printf("moin5");
+     }
+
+     // advection step
+     // compute accelerations and remove out of bounds
+     int it = 0;
+     for (auto& particle : particles) {
+         if (particle.isStatic) continue;
+         // particle.particle_neighbours.clear();
+         // iterateNeighbours(particle, particle.particle_neighbours);
+
+         // quadraticNeighbourSearch(particle, neighbours);
+
+         particle.acceleration = SPHComputationsIISPH::computeTotalAcceleration(particle);
+
+         if (particle.position.x < 20 || particle.position.x > x_size_screen - 40 || particle.position.y < 20 || particle.position.y > y_size_screen - 40) {
+             m_particles.erase(m_particles.begin() + it);
+         }
+         it++;
+     }
+
+     SPHComputationsIISPH::advectParticles(particles);
+
+     SPHComputationsIISPH::isCFLConditionTrue(particles);
 }
 
 void ParticleSystem::resetSimulation() {
@@ -318,7 +338,7 @@ std::vector<Particle*> ParticleSystem::generateSortedList(std::vector<Particle>&
     return L;
 }
 
-void ParticleSystem::iterateNeighbours(Particle& particle, std::vector<Particle>& m_neighbours) {
+void ParticleSystem::iterateNeighbours(Particle& particle, std::vector<Particle*>& m_neighbours) {
     int currCell = getCellIndex(particle.position);
 
     std::pair<int, int> currCellCoord = C.getCoordinatesFromIndex(currCell);
@@ -348,7 +368,7 @@ void ParticleSystem::iterateNeighbours(Particle& particle, std::vector<Particle>
 
                     //L[particleIndex]->color = sf::Color(0, 255, 255, 255); // visual test
 
-                    m_neighbours.push_back(*L[particleIndex]); // add to neighbour list
+                    m_neighbours.push_back(L[particleIndex]); // add to neighbour list
                 }
             }
         }
@@ -456,7 +476,7 @@ void ParticleSystem::addBox2(int x, int y) {
             particle.pressure = 0.0f;
             particle.density = 0.0f;
 
-            if ((xc % 80) == 0) {
+            if ((xc % 3) == 0) {
                 y += 1.45f * h;
                 x = oldx + 1;
                 particle.position = sf::Vector2f(x, y);
@@ -643,36 +663,36 @@ void ParticleSystem::addBoundariesInHalfCircle(int numParticles, int centerX, in
 //     }
 // }
 
-void ParticleSystem::checkMouseHover(const sf::Vector2i& mousePosition) {
-    sf::Vector2f mousePos(static_cast<float>(mousePosition.x), static_cast<float>(mousePosition.y));
-    int mouseCellIndex = getCellIndex(mousePos);
-
-    // TODO delete later
-    std::vector<Particle> neighbours;
-
-    // Reset color of all particles
-    for (auto& particle : m_particles) {
-        //particle.color = sf::Color(255, 255, 0, 255);  // Reset color
-    }
-
-    // Check particles in the cell where the mouse pointer is located
-    if (C.isValid(mousePos.x / cellSize, mousePos.y / cellSize)) {
-        int mouseCellCoordX = mousePos.x / cellSize;
-        int mouseCellCoordY = mousePos.y / cellSize;
-        int numParticlesInCell = C.get(mouseCellCoordX, mouseCellCoordY + 1) - C.get(mouseCellCoordX, mouseCellCoordY);
-
-        for (int i = 0; i < numParticlesInCell; ++i) {
-            int particleIndex = C.get(mouseCellCoordX, mouseCellCoordY) + i;
-            if (inRadius(mousePos, L[particleIndex]->position, particleRadius)) {
-                L[particleIndex]->color = sf::Color(255, 0, 0, 255);  // Change to red on hover
-                iterateNeighbours(*L[particleIndex], neighbours);
-
-                for (auto& p : neighbours) {
-                    p.color = sf::Color(255, 255, 255, 255);
-                }
-                break;  // Only change color of the hovered particle
-            }
-        }
-
-    }
-}
+// void ParticleSystem::checkMouseHover(const sf::Vector2i& mousePosition) {
+//     sf::Vector2f mousePos(static_cast<float>(mousePosition.x), static_cast<float>(mousePosition.y));
+//     int mouseCellIndex = getCellIndex(mousePos);
+//
+//     // TODO delete later
+//     std::vector<Particle> neighbours;
+//
+//     // Reset color of all particles
+//     for (auto& particle : m_particles) {
+//         //particle.color = sf::Color(255, 255, 0, 255);  // Reset color
+//     }
+//
+//     // Check particles in the cell where the mouse pointer is located
+//     if (C.isValid(mousePos.x / cellSize, mousePos.y / cellSize)) {
+//         int mouseCellCoordX = mousePos.x / cellSize;
+//         int mouseCellCoordY = mousePos.y / cellSize;
+//         int numParticlesInCell = C.get(mouseCellCoordX, mouseCellCoordY + 1) - C.get(mouseCellCoordX, mouseCellCoordY);
+//
+//         for (int i = 0; i < numParticlesInCell; ++i) {
+//             int particleIndex = C.get(mouseCellCoordX, mouseCellCoordY) + i;
+//             if (inRadius(mousePos, L[particleIndex]->position, particleRadius)) {
+//                 L[particleIndex]->color = sf::Color(255, 0, 0, 255);  // Change to red on hover
+//                 iterateNeighbours(*L[particleIndex], neighbours);
+//
+//                 for (auto& p : neighbours) {
+//                     p.color = sf::Color(255, 255, 255, 255);
+//                 }
+//                 break;  // Only change color of the hovered particle
+//             }
+//         }
+//
+//     }
+// }

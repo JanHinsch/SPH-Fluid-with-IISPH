@@ -17,7 +17,7 @@ int main() {
     UIManager uiManager(window);
 
     // Create the particle system and visualization renderer
-    ParticleSystem particles(1000);
+    ParticleSystem particles(9);
     particles.initiateParticles(particles.m_particles);
 
     ParticleSystemRenderer renderer;
@@ -96,7 +96,7 @@ int main() {
         uiManager.draw();
         window.display();
 
-        //count++;
+        count++;
         //std::cout << "\rcount: " << count << "/10000 " << std::flush;
 
         // quick bugfix
@@ -106,8 +106,9 @@ int main() {
             view.zoom(0.9f);
             view.zoom(0.9f);
             view.zoom(0.9f);
-            
-            view.move(-80, 0);
+            view.zoom(0.9f);
+
+            view.move(-80, 100);
         }
     }
 

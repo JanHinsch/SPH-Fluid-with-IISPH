@@ -26,11 +26,11 @@ public:
 
     void iterateNeighbours(Particle& particle, std::vector<Particle*>& m_neighbours);
 
-    bool inRadius(sf::Vector2f positionA, sf::Vector2f positionB, float radius=kernelSupport);
+    static static bool inRadius(sf::Vector2f positionA, sf::Vector2f positionB, float radius=kernelSupport);
 
-    void moveBoundaryParticles(std::vector<Particle>& particles, float deltaX, float deltaY, bool switchDir); // delete!!!
+    static static void moveBoundaryParticles(std::vector<Particle>& particles, float deltaX, float deltaY, bool switchDir); // delete!!!
 
-    void rotateBoundaryParticles(std::vector<Particle> &particles,float centerX, float centerY, float angle);
+    static void rotateBoundaryParticles(std::vector<Particle> &particles,float centerX, float centerY, float angle);
 
     void addBox(int numParticles);
 

@@ -457,12 +457,6 @@ bool ParticleSystem::inRadius(sf::Vector2f positionA, sf::Vector2f positionB, fl
     return distance < (radius * radius);
 }
 
-// bool ParticleSystem::inRadius(sf::Vector2f positionA, sf::Vector2f positionB, float radius) {
-//     float distance = euclideanDistance(positionA, positionB);
-
-//     return distance < (radius);
-// }
-
 ///////////////////////////////////////////////////////////////////////
 
 void ParticleSystem::moveBoundaryParticles(std::vector<Particle>& particles, float deltaX, float deltaY, bool switchDir) {
@@ -504,7 +498,7 @@ void ParticleSystem::addBox(int numParticles) {
 
     for (auto& particle : m_particles) {
         if ((xc % 11) == 0) {
-            y += 1.1 * h;
+            y += 1.1f * h;
             x = x_size_screen/2 - 18;
             particle.position = sf::Vector2f(x, y);
         }
@@ -513,29 +507,6 @@ void ParticleSystem::addBox(int numParticles) {
         xc++;
     }
 }
-
-// void ParticleSystem::addBox(int numParticles) {
-
-//     int start = 100;
-//     int end = h * 10 + 100;
-//     int particleIndex = 0;
-
-//     for (int x = start; x < end; x += h) {
-//         for (int y = start; y < end; y += h) {
-//             if (particleIndex >= m_particles.size()) {
-//                 return; // Stop if we've assigned all available particles
-//             }
-//             m_particles[particleIndex].position.x = x;
-//             m_particles[particleIndex].position.y = y;
-
-//             printf("Particle %d: Position (%d, %d)\n", particleIndex, x, y);
-
-
-//             particleIndex++;
-//         }
-//     }
-// }
-
 
 void ParticleSystem::addBox2(int x, int y) {
     int xc = 0;
@@ -704,28 +675,6 @@ void ParticleSystem::addBoundariesInHalfCircle(float h, int centerX, int centerY
         m_particles.push_back(particle);
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

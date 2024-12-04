@@ -17,7 +17,7 @@ int main() {
     UIManager uiManager(window);
 
     // Create the particle system and visualization renderer
-    ParticleSystem particles(100);
+    ParticleSystem particles(1000);
     particles.initiateParticles(particles.m_particles);
 
     ParticleSystemRenderer renderer;
@@ -81,9 +81,17 @@ int main() {
         if (!simulationPaused && EOS_Pressure) {
             particles.updateParticlesEOS(particles.m_particles, x_size_screen, y_size_screen);
         }
-        // Update particles with IISPH
-        if (!simulationPaused && IISPH_Pressure) {
+        // Update particles with IISPH and Pressure Boundaries
+        if (!simulationPaused && IISPH_Pressure_Boundaries) {
             particles.updateParticlesIISPH(particles.m_particles, x_size_screen, y_size_screen);
+        }
+        // Update particles with IISPH and Extrapolation at Boundaries
+        if (!simulationPaused && IISPH_Pressure_Extrapolation) {
+            particles.updateParticlesIISPH_Extrapolation(particles.m_particles, x_size_screen, y_size_screen);
+        }
+        // Update particles with DFSPH and MLS Extrapolation for Boundaries
+        if (!simulationPaused && DFSPH_Pressure) {
+            particles.updateParticlesDFSPH(particles.m_particles, x_size_screen, y_size_screen);
         }
 
         // Update vertices based on new particle positions
@@ -106,11 +114,10 @@ int main() {
         // screenshot.saveToFile(generateFrameFilename(count));
 
 
-        count++;
-        // std::cout << "\rcount: " << count << "/10000 " << std::flush;
-
         // Exit the loop
-        // if (count == 600) {
+        count++;
+        // std::cout << "\rcount: " << count << "/500 " << std::flush;
+        // if (count == 500) {
         //     std::cout << "Simulation complete. Exiting..." << std::endl;
         //     break;
         // }
@@ -126,8 +133,11 @@ int main() {
             view.zoom(0.9f);
             view.zoom(0.9f);
             view.zoom(0.9f);
+            view.zoom(0.9f);
+            view.zoom(0.9f);
+            view.zoom(0.9f);
 
-            view.move(-90, 80);
+            view.move(-300, 130);
         }
     }
 

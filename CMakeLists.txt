@@ -27,10 +27,11 @@ add_executable(main
     src/Grid.cpp
     src/ParticleSystem.cpp
         src/SimulationEOS.cpp
-        src/SimulationIISPH.cpp
+        src/SimulationIISPH_PressureBoundaries.cpp
     src/Visualization.cpp
     src/UIManager.cpp
     src/main.cpp
+        src/SimulationIISPH_MLSExtrapolation.cpp
 
 )
 
@@ -73,12 +74,15 @@ add_executable(tests_SPH_Computations
     src/Grid.cpp
     src/ParticleSystem.cpp
         src/SimulationEOS.cpp
-        src/SimulationIISPH.cpp
+        src/SimulationIISPH_PressureBoundaries.cpp
     src/Visualization.cpp
 )
 
 # Include Catch2
 include_directories(external/catch2)
+
+# Include Eigen
+include_directories(external/eigen-master/Eigen)
 
 # Link SFML libraries to tests
 target_link_libraries(tests_neighbour sfml-graphics sfml-window sfml-system)

@@ -22,11 +22,21 @@ extern float viscosityFactor;
 
 extern sf::Vector2f gravity;
 
-extern const float timeStep;
+extern float timeStep;
+
+extern const float lambda;
+
+extern const float minTimeStep;
+
+extern const float maxTimeStep;
 
 extern bool EOS_Pressure;
 
-extern bool IISPH_Pressure;
+extern bool IISPH_Pressure_Boundaries;
+
+extern bool IISPH_Pressure_Extrapolation;
+
+extern bool DFSPH_Pressure;
 
 extern int countFluidParticles;
 
@@ -133,6 +143,11 @@ inline sf::Vector2f operator/(const sf::Vector2f& lhs, const sf::Vector2f& rhs) 
 // Function to calculate the dot product of two sf::Vector2f
 inline float dotProduct(const sf::Vector2f& lhs, const sf::Vector2f& rhs) {
     return lhs.x * rhs.x + lhs.y * rhs.y;
+}
+
+// Function to calculate the dot product of two sf::Vector3f
+inline float dotProduct3f(const sf::Vector3f& lhs, const sf::Vector3f& rhs) {
+    return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
 }
 
 float euclideanDistance(const sf::Vector2f& positionA, const sf::Vector2f& positionB);

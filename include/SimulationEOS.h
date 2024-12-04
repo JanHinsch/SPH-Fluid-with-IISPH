@@ -30,11 +30,15 @@ public:
 
     static float getMaxVelocity(std::vector<Particle>& particles);
 
+    static float getMaxVelocityPressure(std::vector<Particle> &particles);
+
     static float getAvgDensity(std::vector<Particle> &particles, const std::string& filename);
 
     static void isCFLConditionTrue(std::vector<Particle>& particles);
 
     static float getCourantNumber(std::vector<Particle> &particles);
+
+    static float computeAdaptiveTimeStep(float adaptiveTimeStep);
 
 private:
     

@@ -78,7 +78,7 @@ void ParticleSystemRenderer::updateCamera(sf::RenderWindow& window, sf::View& vi
         sf::Vector2f worldPos = window.mapPixelToCoords(pixelPos);
 
         // Check mouse hover
-        //particleSystem.checkMouseHover(static_cast<sf::Vector2i>(worldPos)); // visual test
+        // particleSystem.checkMouseHover(static_cast<sf::Vector2i>(worldPos)); // visual test
     }
 }
 

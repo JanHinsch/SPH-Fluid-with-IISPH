@@ -19,16 +19,15 @@ def calculate_average(data):
 def main():
     # File names and labels for the data files
     files = [
-        ("currentIterations_500.txt", "500 Particles"),
-        ("currentIterations_1000.txt", "1000 Particles"),
-        ("currentIterations_1500.txt", "1500 Particles")
+        ("currentIterations_normalPressureInit.txt", "Normal Pressure Init"),
+        ("currentIterations_maxPressureInit.txt", "Particles Max Pressure Init")
     ]
     
     # Path to the directory containing the data files
-    base_path = "/Users/jan/Desktop/SPH_Fluid_Pressure_Bundary_IISPH_densities/cmake-build-debug/"
+    base_path = "/Users/jan/Desktop/SPH_Fluid_with_IISPH/cmake-build-debug/"
     
     # Colors for the different lines
-    colors = ['blue', 'green', 'red']
+    colors = ['blue', 'green']
     
     # Store averages for each file
     averages = []
@@ -59,7 +58,7 @@ def main():
     # Plot settings
     plt.xlabel('Simulation Steps')
     plt.ylabel('Needed Iterations')
-    plt.title('Pillar Test for Different Particle Counts')
+    plt.title('Pillar Test for Different Pressure Initialization')
     plt.grid(True)
     plt.legend(loc='upper right')
 
@@ -67,7 +66,7 @@ def main():
     average_text = "\n".join([f"Avg Iterations for {label}: {avg:.2f}" for label, avg in averages])
     
     # Add a text box with averages in the lower left corner of the plot
-    plt.text(0.02, 0.02, average_text, fontsize=10, verticalalignment='bottom', horizontalalignment='left',
+    plt.text(0.02, 0.98, average_text, fontsize=10, verticalalignment='top', horizontalalignment='left',
              transform=plt.gca().transAxes, bbox=dict(facecolor='white', alpha=0.8))
 
     # Show the plot

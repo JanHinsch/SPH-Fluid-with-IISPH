@@ -43,8 +43,7 @@ sf::Vector2f SPHComputationsEOS::kernelGradient(sf::Vector2f positionA,sf::Vecto
         throw std::runtime_error("Invalid distance");
     } else if (q < 1.0f) {
         return (kernelAlpha() * (diff / (distance * h))) * (-3 * std::pow((2 - q),2) + 12 * std::pow((1- q), 2));
-    }
-        else if (q < 2.0f) {
+    } else if (q < 2.0f) {
         return (kernelAlpha() * (diff / (distance * h))) * (-3 * std::pow((2 - q),2));
     } else {
         return sf::Vector2f(0.0f, 0.0f);
@@ -335,22 +334,95 @@ float SPHComputationsEOS::getMaxVelocity(std::vector<Particle>& particles) {
     return maxSpeed;
 }
 
+// max velo and color gradient to pressure
+float SPHComputationsEOS::getMaxVelocityPressure(std::vector<Particle>& particles) {
+    float maxSpeed = 0;
+    float speed = 0;
+
+    float maxPressure = 0;
+    float minPressure = 0;
+
+    for (auto& particle : particles) {
+        if (particle.isStatic) {
+            continue;
+        }
+
+        if (particle.pressure > maxPressure) {
+            maxPressure = particle.pressure;
+        }
+        if (particle.pressure < minPressure) {
+            minPressure = particle.pressure;
+        }
+
+        speed = std::sqrt(particle.velocity.x * particle.velocity.x + particle.velocity.y * particle.velocity.y);
+        if (speed > maxSpeed) {
+            maxSpeed = speed;
+        }
+    }
+
+    minPressure = 0.0001f;
+    // set threshholds
+    float speedThreshold1 = minPressure + 0.1f * (maxPressure - minPressure);
+    float speedThreshold2 = minPressure + 0.3f * (maxPressure - minPressure);
+
+    // Loop through each particle to apply the color based on the pressure
+    for (auto& particle : particles) {
+        sf::Uint8 r, g, b;
+
+        if (particle.pressure < speedThreshold1) {
+            // Blue to Cyan
+            float ratio = particle.pressure / speedThreshold1; // [0, speedThreshold1] -> [0, 1]
+            r = 0;
+            g = static_cast<sf::Uint8>(ratio * 255);
+            b = 255;
+        } else if (particle.pressure < speedThreshold2) {
+            // Cyan to Green
+            float ratio = (particle.pressure - speedThreshold1) / (speedThreshold2 - speedThreshold1); // [speedThreshold1, speedThreshold2] -> [0, 1]
+            r = 0;
+            g = 255;
+            b = static_cast<sf::Uint8>((1 - ratio) * 255);
+        } else {
+            // Green to Red
+            float ratio = (particle.pressure - speedThreshold2) / (maxPressure - speedThreshold2); // [speedThreshold2, maxSpeed] -> [0, 1]
+            r = static_cast<sf::Uint8>(ratio * 255);
+            g = static_cast<sf::Uint8>((1 - ratio) * 255);
+            b = 0;
+        }
+
+        // Set the particle's color
+        particle.color = sf::Color(r, g, b, 255);
+    }
+
+    return maxSpeed;
+}
+
 void SPHComputationsEOS::isCFLConditionTrue(std::vector<Particle>& particles) {
-    float lambda = 0.9f;
-    float value;
-    // value = lambda * (h / getMaxVelocity(particles));
-    // printf("timeStep: %f  CFL: %f    maxVeloc: %f \n", timeStep, value, getMaxVelocity(particles));
-    if (timeStep <= lambda * (h / getMaxVelocity(particles))) {
+    float lambda = 0.5f;
+    float check = 0.0f;
+    if (pressureColors) {
+        check = lambda * (h / getMaxVelocityPressure(particles));
+    } else {
+        check = lambda * (h / getMaxVelocity(particles));
+
+    }
+    if (timeStep <= check) {
         CFLCondition = true;
     } else {
         CFLCondition = false;
     }
+    timeStep = computeAdaptiveTimeStep(check);
 }
 
 float SPHComputationsEOS::getCourantNumber(std::vector<Particle>& particles) {
     float value;
     value = timeStep * (h / getMaxVelocity(particles));
     return value;
+}
+
+float SPHComputationsEOS::computeAdaptiveTimeStep(float adaptiveTimeStep) {
+    // Clamp the time step to a reasonable range
+    adaptiveTimeStep = std::max(minTimeStep, std::min(adaptiveTimeStep, maxTimeStep));
+    return adaptiveTimeStep;
 }
 
 float SPHComputationsEOS::getAvgDensity(std::vector<Particle>& particles, const std::string& filename) {

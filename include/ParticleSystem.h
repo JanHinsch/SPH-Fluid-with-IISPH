@@ -26,9 +26,9 @@ public:
 
     void iterateNeighbours(Particle& particle, std::vector<Particle*>& m_neighbours);
 
-    static static bool inRadius(sf::Vector2f positionA, sf::Vector2f positionB, float radius=kernelSupport);
+    static bool inRadius(sf::Vector2f positionA, sf::Vector2f positionB, float radius=kernelSupport);
 
-    static static void moveBoundaryParticles(std::vector<Particle>& particles, float deltaX, float deltaY, bool switchDir); // delete!!!
+    static void moveBoundaryParticles(std::vector<Particle>& particles, float deltaX, float deltaY, bool switchDir); // delete!!!
 
     static void rotateBoundaryParticles(std::vector<Particle> &particles,float centerX, float centerY, float angle);
 
@@ -58,6 +58,10 @@ public:
     void updateParticlesEOS(std::vector<Particle>& particles, int x_size_screen, int y_size_screen);
 
     void updateParticlesIISPH(std::vector<Particle>& particles, int x_size_screen, int y_size_screen);
+
+    void updateParticlesIISPH_Extrapolation(std::vector<Particle>& particles, int x_size_screen, int y_size_screen);
+
+    void updateParticlesDFSPH(std::vector<Particle>& particles, int x_size_screen, int y_size_screen);
 
     void resetSimulation();
 

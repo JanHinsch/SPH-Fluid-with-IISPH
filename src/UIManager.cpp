@@ -158,7 +158,7 @@ void UIManager::initializeUI(const std::function<void()>& pauseResumeCallback,
     m_gui.add(m_cflConditionLabel);
 
     // Conditional UI for IISPH
-    if (IISPH_Pressure) {
+    if (IISPH_Pressure_Boundaries || IISPH_Pressure_Extrapolation) {
         // Add Current Iterations Label under the CFL Condition
         m_currentIterationsLabel = tgui::Label::create();
         m_currentIterationsLabel->setPosition(10, 200); // Adjust position if needed

@@ -3,20 +3,22 @@
 #include "../include/Globals.h"
 #include "../include/Grid.h"
 #include "../include/SimulationEOS.h"
-#include "../include/SimulationIISPH.h"
+#include "../include/SimulationIISPH_PressureBoundaries.h"
 #include "../include/UIManager.h"
 #include <cstdlib>
 #include <cmath>
 #include "ParticleSystem.h"
 
+#include <SimulationIISPH_MLSExtrapolation.h>
+
 ParticleSystem::ParticleSystem(unsigned int count) : m_particles(count), C(numCellsX, numCellsY), L(m_particles.size() +
-                                                                                                     // 200 * 3 +
-                                                                                                     // 80 * 2 +
-                                                                                                     // 113 * 2 +
-                                                                                                     // 400 * 1
-                                                                                                     15 * 1 +
-                                                                                                     110 * 2
-                                                                                                     ) {}
+                                                                                                    // 200 * 3 +
+                                                                                                    // 80 * 2 +
+                                                                                                    // 113 * 2 +
+                                                                                                    // 400 * 1
+                                                                                                    15 * 1 +
+                                                                                                    110 * 2
+                                                     ) {}
 
 ////////////////////// Simulation Part ////////////////////////////
 
@@ -73,7 +75,7 @@ void ParticleSystem::initiateParticles(std::vector<Particle>& particles) {
     // addBox2(420, 210); // with 10000 and addbox 100
 
 
-    addBoundariesInHalfCircle({},519, 446, 199.0f, 0.0f);
+    // addBoundariesInHalfCircle({},519, 446, 199.0f, 0.0f);
     // addBoundariesInHalfCircle(400,519, 448, 199.0f, 0.0f);
 
     ///////////////////////////// Analyse /////////////////////
@@ -87,7 +89,7 @@ void ParticleSystem::initiateParticles(std::vector<Particle>& particles) {
     addBoundaries2(110, 348, 444);
     // addBoundaries2(100, 346, 464);
 
-    addBoxAnalyse(318, 410);
+    addBoxAnalyse(321, 455);
 
 
     //////////////////////////////////////////////////////////
@@ -96,9 +98,9 @@ void ParticleSystem::initiateParticles(std::vector<Particle>& particles) {
         // Set uniform mass for all particles
         float particleRestVolume = std::pow(h, 2);
         
-        // float particleMass = particleRestVolume * density_rest;
-        float particleMass = 30;
-        density_rest = particleMass/particleRestVolume;
+        float particleMass = particleRestVolume * density_rest;
+        // float particleMass = 30;
+        // density_rest = particleMass/particleRestVolume;
 
 
         particle.mass = particleMass;
@@ -199,7 +201,7 @@ void ParticleSystem::updateParticlesEOS(std::vector<Particle>& particles, int x_
     // rotateBoundaryParticles(particles, 320, 482, 0.9f);
 }
 
-// Simulation Step of solver with IISPH
+// Simulation Step of solver with IISPH and Pressure Boundaries
 void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int x_size_screen, int y_size_screen) {
 
      /////////// Index search
@@ -225,15 +227,14 @@ void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int 
     // as in Pressure Boundary IISPH Paper 2018
     for (auto& particle : particles) {
         if (particle.isStatic) {
-            particle.restVolume = SPHComputationsIISPH::computeRestVolumeBoundary(particle);
-            particle.volume = SPHComputationsIISPH::computeVolumeBoundary(particle);
+            particle.restVolume = SPHComputationsIISPH_PressureBoundaries::computeRestVolumeBoundary(particle);
+            particle.volume = SPHComputationsIISPH_PressureBoundaries::computeVolumeBoundary(particle);
         }
     }
 
     for (auto& particle : particles) {
-
         if (!(particle.isStatic)) {
-            particle.volume = SPHComputationsIISPH::computeVolumeFluid(particle);
+            particle.volume = SPHComputationsIISPH_PressureBoundaries::computeVolumeFluid(particle);
         }
 
         if (!(particle.isStatic)) {
@@ -251,16 +252,166 @@ void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int 
 
     for (auto& particle : particles) {
         if (particle.isStatic) continue;
-        particle.predicted_velocity = SPHComputationsIISPH::predictVelocity(particle);
+        particle.predicted_velocity = SPHComputationsIISPH_PressureBoundaries::predictVelocity(particle);
     }
 
     for (auto& particle : particles) {
-        particle.sourceTerm = SPHComputationsIISPH::computeSourceTerm(particle);
+        particle.sourceTerm = SPHComputationsIISPH_PressureBoundaries::computeSourceTerm(particle);
 
         if (particle.isStatic) {
-            particle.diagonalElement = SPHComputationsIISPH::computeDiagonalElementBoundary(particle);
+            particle.diagonalElement = SPHComputationsIISPH_PressureBoundaries::computeDiagonalElementBoundary(particle);
         } else {
-            particle.diagonalElement = SPHComputationsIISPH::computeDiagonalElementFluid(particle);
+            particle.diagonalElement = SPHComputationsIISPH_PressureBoundaries::computeDiagonalElementFluid(particle);
+        }
+
+        // normal pressure initialising
+        // particle.pressure = 0.0f;
+
+        // als test TODO: Entfernen allerding glaube ich das hier ist besser -> mach hierzu mal Iteration Analyse
+        particle.pressure = std::max(particle.sourceTerm/particle.diagonalElement, 0.0f);
+    }
+
+    int iterations_l = 0;
+    float V_error = 0.0f;
+
+    while (iterations_l < 100) {
+        int it = 0;                      // For out of bounds
+        V_error = 0.0f;                  // Reset volume error for this iteration
+
+        // for each fluid sample compute pressure acc
+        for (auto& particle : particles) {
+            if (particle.isStatic) continue;
+            particle.acceleration = SPHComputationsIISPH_PressureBoundaries::computePressureAcceleration(particle);
+
+            // remove out of bounds particles
+            if (particle.position.x < 20 || particle.position.x > x_size_screen - 40 || particle.position.y < 20 || particle.position.y > y_size_screen - 40) {
+                m_particles.erase(m_particles.begin() + it);
+            }
+            it++;
+        }
+
+        for (auto& particle : particles) {
+            if (particle.isStatic) {
+                particle.Ap = SPHComputationsIISPH_PressureBoundaries::computeApBoundary(particle);
+            } else {
+                particle.Ap = SPHComputationsIISPH_PressureBoundaries::computeApFluid(particle);
+            }
+
+            // mit omega boundary handling
+            if (particle.diagonalElement != 0.0f) {
+                if (particle.isStatic) {
+                    particle.pressure = SPHComputationsIISPH_PressureBoundaries::updatePressureBoundaries(particle);
+                } else {
+                    particle.pressure = SPHComputationsIISPH_PressureBoundaries::updatePressure(particle);
+                }
+            }
+
+            // ohne spezielle update pressure omega handling
+            // particle.pressure = SPHComputationsIISPH_PressureBoundaries::updatePressure(particle);
+
+            // volume error fluid and boundary
+            float particle_volume_error = 100.0f * std::max(particle.Ap - particle.sourceTerm, 0.0f) / particleRestVolume;
+            V_error += particle_volume_error;  // Accumulate total volume error
+
+            if (std::isnan(particle.Ap)) {
+                printf("AP inf");
+            }
+
+            if (std::isinf(particle.pressure)) {
+                printf("Pressure inf");
+            }
+        }
+
+        // Average the volume and density errors across particles
+        V_error /= particles.size();
+
+        if (V_error < 0.1f && iterations_l > 1) {
+            currentIterations = iterations_l;
+            // Compute and write the curren Iterattion to the file TODO file write section
+            // std::string iterationFile = "currentIterations_maxPressureInit.txt";
+            // SPHComputationsIISPH_PressureBoundaries::writeCurrentIterationToFile(iterationFile);
+
+            break;
+        }
+
+        iterations_l++;
+    }
+
+    // std::cout << "\rreal Error: " << real_V_error_sum << "% Time Step: " << timeStep << std::flush;
+    // std::cout << "\rreal Error: " << percentage_V_error << std::flush;
+
+    // printf("real Error: %f \n", real_V_error);
+    // printf("next \n \n");
+
+     SPHComputationsIISPH_PressureBoundaries::advectParticles(particles);
+
+     SPHComputationsIISPH_PressureBoundaries::isCFLConditionTrue(particles);
+
+    // printf("Courant Number: %f \n", SPHComputationsIISPH::getCourantNumber(particles));
+    // std::cout << "\rCourant Number: %f" << SPHComputationsIISPH::getCourantNumber(particles) << std::flush;
+}
+
+// Simulation Step of solver with IISPH and Pressure Boundaries
+void ParticleSystem::updateParticlesIISPH_Extrapolation(std::vector<Particle>& particles, int x_size_screen, int y_size_screen) {
+
+     /////////// Index search
+     // Calculate the total number of cells in the grid and initialize C
+     C.clear();
+
+     // Index Search
+     // for neighbor search assign particle to a cell
+     for (auto& p : particles) {
+         int cellIndex = getCellIndex(p.position);
+         C[cellIndex]++;
+     }
+     L = generateSortedList(particles);
+     ////////////////////
+
+    for (auto& particle : particles) {
+        particle.particle_neighbours.clear();
+        iterateNeighbours(particle, particle.particle_neighbours);
+    }
+
+    float real_V_error_sum = 0.0f;
+
+    // as in Pressure Boundary IISPH Paper 2018
+    for (auto& particle : particles) {
+        if (particle.isStatic) {
+            particle.restVolume = SPHComputationsIISPH_PressureBoundaries::computeRestVolumeBoundary(particle);
+            particle.volume = SPHComputationsIISPH_PressureBoundaries::computeVolumeBoundary(particle);
+        }
+    }
+
+    for (auto& particle : particles) {
+        if (!(particle.isStatic)) {
+            particle.volume = SPHComputationsIISPH_PressureBoundaries::computeVolumeFluid(particle);
+        }
+
+        if (!(particle.isStatic)) {
+            // compute real error
+            // real_V_error += (particle.volume - particleRestVolume);
+            float real_V_error = std::abs(particle.volume - particleRestVolume) / particleRestVolume * 100.0f;
+            real_V_error_sum += real_V_error;
+        }
+    }
+
+    real_V_error_sum /= countFluidParticles;
+
+    // Compute the percentage error with respect to particleRestVolume
+    float percentage_V_error = std::abs(real_V_error_sum - particleRestVolume) / particleRestVolume  * 100.0f;
+
+    for (auto& particle : particles) {
+        if (particle.isStatic) continue;
+        particle.predicted_velocity = SPHComputationsIISPH_PressureBoundaries::predictVelocity(particle);
+    }
+
+    for (auto& particle : particles) {
+        particle.sourceTerm = SPHComputationsIISPH_PressureBoundaries::computeSourceTerm(particle);
+
+        if (particle.isStatic) {
+            particle.diagonalElement = SPHComputationsIISPH_PressureBoundaries::computeDiagonalElementBoundary(particle);
+        } else {
+            particle.diagonalElement = SPHComputationsIISPH_PressureBoundaries::computeDiagonalElementFluid(particle);
         }
 
         // normale pressure initilisierung
@@ -281,7 +432,7 @@ void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int 
         // for each fluid sample compute pressure acc
         for (auto& particle : particles) {
             if (particle.isStatic) continue;
-            particle.acceleration = SPHComputationsIISPH::computePressureAcceleration(particle);
+            particle.acceleration = SPHComputationsIISPH_PressureBoundaries::computePressureAcceleration(particle);
 
             // remove out of bounds particles
             if (particle.position.x < 20 || particle.position.x > x_size_screen - 40 || particle.position.y < 20 || particle.position.y > y_size_screen - 40) {
@@ -291,19 +442,18 @@ void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int 
         }
 
         for (auto& particle : particles) {
-
             if (particle.isStatic) {
-                particle.Ap = SPHComputationsIISPH::computeApBoundary(particle);
+                particle.Ap = SPHComputationsIISPH_PressureBoundaries::computeApBoundary(particle);
             } else {
-                particle.Ap = SPHComputationsIISPH::computeApFluid(particle);
+                particle.Ap = SPHComputationsIISPH_PressureBoundaries::computeApFluid(particle);
             }
 
             // mit omega boundary handling
             if (particle.diagonalElement != 0.0f) {
                 if (particle.isStatic) {
-                    particle.pressure = SPHComputationsIISPH::updatePressureBoundaries(particle);
+                    particle.pressure = SPHComputationsIISPH_PressureBoundaries::updatePressureBoundariesExtrapolation(particle);
                 } else {
-                    particle.pressure = SPHComputationsIISPH::updatePressure(particle);
+                    particle.pressure = SPHComputationsIISPH_PressureBoundaries::updatePressure(particle);
                 }
             }
 
@@ -333,30 +483,154 @@ void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int 
 
             // Compute and write the curren Iterattion to the file
             std::string iterationFile = "currentIterations_1500.txt";
-            SPHComputationsIISPH::writeCurrentIterationToFile(iterationFile);
+            SPHComputationsIISPH_PressureBoundaries::writeCurrentIterationToFile(iterationFile);
             break;
         }
 
         iterations_l++;
     }
 
-    std::cout << "\rreal Error: " << real_V_error_sum << "%" << std::flush;
+    std::cout << "\rreal Error: " << real_V_error_sum << "% Time Step: " << timeStep << std::flush;
     // std::cout << "\rreal Error: " << percentage_V_error << std::flush;
 
     // printf("real Error: %f \n", real_V_error);
     // printf("next \n \n");
 
-     SPHComputationsIISPH::advectParticles(particles);
+     SPHComputationsIISPH_PressureBoundaries::advectParticles(particles);
 
-     SPHComputationsIISPH::isCFLConditionTrue(particles);
+     SPHComputationsIISPH_PressureBoundaries::isCFLConditionTrue(particles);
 
     // printf("Courant Number: %f \n", SPHComputationsIISPH::getCourantNumber(particles));
     // std::cout << "\rCourant Number: %f" << SPHComputationsIISPH::getCourantNumber(particles) << std::flush;
 }
 
+// Simulation Step of solver with DFSPH and MLS Extrapolation TODO does not work
+void ParticleSystem::updateParticlesDFSPH(std::vector<Particle>& particles, int x_size_screen, int y_size_screen) {
+    /////////// Index search
+    // Calculate the total number of cells in the grid and initialize C
+    C.clear();
+
+    // Index Search
+    // for neighbor search assign particle to a cell
+    for (auto& p : particles) {
+        int cellIndex = getCellIndex(p.position);
+        C[cellIndex]++;
+    }
+    L = generateSortedList(particles);
+    ////////////////////
+
+    for (auto& particle : particles) {
+        particle.particle_neighbours.clear();
+        iterateNeighbours(particle, particle.particle_neighbours);
+    }
+
+    for (auto& particle : particles) {
+        if (particle.isStatic) continue;
+        particle.density = SPHComputationsIISPH_MLSExtra::computeDensity(particle);
+        particle.diagonalElement = SPHComputationsIISPH_MLSExtra::computeFactorLambda(particle);
+    }
+
+
+    int iterations_all = 0;
+
+    while (true) {
+        // Correct Divergence Error
+        for (auto& particle : particles) { // for fluid particles
+            if (particle.isStatic) continue;
+            particle.sourceTerm = SPHComputationsIISPH_MLSExtra::computeSourceTermDivergenceFree(particle);
+            particle.pressure = 0.0f;
+        }
+
+        int iterations_Divergence = 0;
+        float Divergence_error = 0.0f;
+
+        while (true) {
+            for (auto& particle : particles) { // for boundary particles
+                if (!(particle.isStatic)) continue;
+                particle.pressure = SPHComputationsIISPH_MLSExtra::computePressureMLS(particle);
+            }
+
+            for (auto& particle : particles) { // for fluid particles
+                if (particle.isStatic) continue;
+                particle.acceleration = SPHComputationsIISPH_MLSExtra::computePressureAcceleration(particle);
+            }
+
+            for (auto& particle : particles) { // for fluid particles
+                if (particle.isStatic) continue;
+                particle.pressure = SPHComputationsIISPH_MLSExtra::setPressureDivergenceError(particle);
+            }
+
+            if (iterations_Divergence > 4) {
+                break;
+            }
+            iterations_Divergence++;
+        }
+
+        for (auto& particle : particles) { // for fluid particles
+            particle.predicted_velocity = particle.velocity + timeStep * particle.acceleration;
+        }
+
+        for (auto& particle : particles) { // for fluid particles
+            sf::Vector2f non_pressure_acc = SPHComputationsIISPH_MLSExtra::computeViscosity(particle)
+                                    + gravity;
+            non_pressure_acc *= timeStep;
+            particle.predicted_velocity = particle.predicted_velocity + non_pressure_acc;
+        }
+
+        // Correct Density Error
+        for (auto& particle : particles) { // for fluid particles
+            if (particle.isStatic) continue;
+            particle.sourceTerm = SPHComputationsIISPH_MLSExtra::computeSourceTermDensityError(particle);
+            particle.pressure = 0.0f;
+        }
+
+        int iterations_Density = 0;
+        float Density_error = 0.0f;
+
+        while (true) {
+            for (auto& particle : particles) { // for boundary particles
+                if (!(particle.isStatic)) continue;
+                particle.pressure = SPHComputationsIISPH_MLSExtra::computePressureMLS(particle);
+            }
+
+            for (auto& particle : particles) { // for fluid particles
+                if (particle.isStatic) continue;
+                particle.acceleration = SPHComputationsIISPH_MLSExtra::computePressureAcceleration(particle);
+            }
+
+            for (auto& particle : particles) { // for fluid particles
+                if (particle.isStatic) continue;
+                particle.pressure = SPHComputationsIISPH_MLSExtra::setPressureDensityError(particle);
+            }
+
+            if (iterations_Density > 4) {
+                break;
+            }
+            iterations_Density++;
+        }
+
+        if (iterations_all > 4) {
+            break;
+        }
+        iterations_all++;
+    }
+
+    SPHComputationsIISPH_MLSExtra::advectParticles(particles);
+
+    SPHComputationsIISPH_MLSExtra::isCFLConditionTrue(particles);
+}
+
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////////
+
 void ParticleSystem::resetSimulation() {
     
-    addBox2(439, 584);
+    // addBox2(439, 584);
+    addBoxAnalyse(318, 405);
     printf("Pressed Reset\n");
 }
 
@@ -536,24 +810,35 @@ void ParticleSystem::addBox2(int x, int y) {
 }
 
 void ParticleSystem::addBoxAnalyse(int x, int y) {
-    int xc = 0;
-    int oldx = x;
+    int xc = 0; // Counter for particles in a row
+    int yc = 0; // Counter for rows (layers)
+    int oldx = x; // Store the initial x position
 
     for (auto& particle : m_particles) {
         if (particle.isStatic == false) {
+            // Reset particle properties
             particle.velocity = sf::Vector2f(0.0f, 0.0f);
             particle.acceleration = sf::Vector2f(0.0f, 0.0f);
             particle.pressure = 0.0f;
             particle.density = 0.0f;
 
+            // Start a new layer when necessary
             if ((xc % 12) == 0) {
-                y += h;
-                x = oldx + 1;
-                particle.position = sf::Vector2f(x, y);
+                y += h; // Move to the next layer
+                x = oldx; // Reset x to initial value
+                xc = 0; // Reset particle count in the row
+
+                // Apply staggered offset for every second layer
+                if ((yc % 2) == 1) {
+                    x -= static_cast<int>(0.5f * h); // Offset by 0.5 * h
+                }
+                yc++; // Increment row (layer) counter
             }
-            x += h;
+
+            // Set particle position and increment counters
             particle.position = sf::Vector2f(x, y);
-            xc++;
+            x += h; // Increment x for the next particle
+            xc++; // Increment particle counter
         }
     }
 }

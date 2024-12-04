@@ -6,7 +6,7 @@
 #include <string>
 #include <sstream>
 #include <iomanip>
-#include <SimulationIISPH.h>
+#include <SimulationIISPH_PressureBoundaries.h>
 
 // screen size
 const int x_size_screen = 1200;
@@ -17,23 +17,34 @@ float h = 2.0f;
 
 float kernelSupport = 2.0 * h;
 
-float stiffness_constant_k = 90000;
+float stiffness_constant_k = 100;
 
 float surfaceTensionFactor = 0.0f;
 
 float particleRestVolume = std::pow(h, 2);
 
-float density_rest = 0.001f;  // Example value
+float density_rest = 0.01f;  // Example value
 
-float viscosityFactor = 0.0f;  // Example value, adjust based on your fluid properties also called mü
+float viscosityFactor = 0.04f;  // Example value, adjust based on your fluid properties also called mü
 
 sf::Vector2f gravity = sf::Vector2f(0.0f, 9.8f);
 
-const float timeStep = 0.007f;
+// adaptive timeStepping
+float timeStep = 0.007f;
+
+const float lambda = 0.5f;
+
+const float minTimeStep = 0.001f;
+
+const float maxTimeStep = 0.008;
 
 bool EOS_Pressure = false;
 
-bool IISPH_Pressure = true;
+bool IISPH_Pressure_Boundaries = false;
+
+bool IISPH_Pressure_Extrapolation = true;
+
+bool DFSPH_Pressure = false;
 
 // when true print pressure color when false print velocity
 bool pressureColors = true;
@@ -45,13 +56,16 @@ int countFluidParticles = 0;
 int currentIterations = 0;
 
 
-float speedThreshold1 = 20.0f;  // Blue to Cyan
-float speedThreshold2 = 40.0f;  // Cyan to Green
+float speedThreshold1 = 0.0f;  // Blue to Cyan
+float speedThreshold2 = 0.0f;  // Cyan to Green
+
+// float speedThreshold1 = 20.0f;  // Blue to Cyan for velo
+// float speedThreshold2 = 40.0f;  // Cyan to Green for velo
 
 // used in IISPH
 float gamma_1 = 0.7f; // keep between 0.0f and 1.0f -> best is 0.7f
 // unused
-float gamma_2 = 1.0f; // apparently often > 1.0f
+float gamma_2 = 0.25f; // apparently often > 1.0f
 
 // used in IISPH updatePressure
 float omega = 0.5f;
@@ -67,7 +81,7 @@ const int numCellsX = x_size_screen / cellSize;
 const int numCellsY = y_size_screen / cellSize;
 
 // diameter of particles
-const float particleDiameter = h;
+const float particleDiameter = 1.5f * h;
 const float particleRadius = particleDiameter / 2;
 
 // for pausing simulation
@@ -94,8 +108,8 @@ void writeGlobalsToFile(const std::string& filename) {
             outFile << "rest_density=" << density_rest << "\n";
             outFile.close();
         }
-        if (IISPH_Pressure) {
-            outFile << "countFluidParticles=" << 500 << "\n";
+        if (IISPH_Pressure_Boundaries) {
+            outFile << "countFluidParticles=" << 1500 << "\n";
             outFile << "timeStep=" << timeStep << "\n";
             outFile.close();
         }

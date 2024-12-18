@@ -75,34 +75,24 @@ sf::Vector2f SPHComputationsIISPH_PressureBoundaries::computeViscosity(Particle&
         }
     }
 
-    return (2 * viscosityFactor * sumFluid) + (viscosityFactor * sumBoundary * 0.1f);
+    return (2 * viscosityFactor * sumFluid) + (viscosityFactor * sumBoundary * 0.0f);
 }
 
-// sf::Vector2f SPHComputationsIISPH::computeSurfaceTension(Particle& particle_i) {
-//     sf::Vector2f sum(0.0f, 0.0f);
-//
-//     for (auto& particle_j : particle_i.particle_neighbours) {
-//         if (particle_j->isStatic == false) {
-//             sum += kernelGradient(particle_i.position, particle_j->position);
-//         }
-//     }
-//     if (sum != sf::Vector2f(0.0f, 0.0f)) {
-//         return sum;
-//     } else {
-//         return sf::Vector2f(0.0f, 0.0f);
-//     }
-// }
+sf::Vector2f SPHComputationsIISPH_PressureBoundaries::computeSurfaceTension(Particle& particle_i) {
+    sf::Vector2f sum(0.0f, 0.0f);
 
-sf::Vector2f SPHComputationsIISPH_PressureBoundaries::computeTotalAcceleration(Particle& particle) {
-    sf::Vector2f pressureAcceleration = computePressureAcceleration(particle);
-    sf::Vector2f viscosityAcceleration = computeViscosity(particle);
-
-    // sf::Vector2f surfaceTension = computeSurfaceTension(particle);
-
-    sf::Vector2f totalAcceleration = pressureAcceleration + viscosityAcceleration + gravity;
-
-    return totalAcceleration;
+    for (auto& particle_j : particle_i.particle_neighbours) {
+        if (particle_j->isStatic == false) {
+            sum += kernelGradient(particle_i.position, particle_j->position) * surfaceTensionFactor;
+        }
+    }
+    if (sum != sf::Vector2f(0.0f, 0.0f)) {
+        return sum;
+    } else {
+        return sf::Vector2f(0.0f, 0.0f);
+    }
 }
+
 
 void SPHComputationsIISPH_PressureBoundaries::advectParticles(std::vector<Particle>& particles) {
     for (auto& particle : particles) {
@@ -162,6 +152,19 @@ float SPHComputationsIISPH_PressureBoundaries::computeVolumeFluid(Particle& part
     return particle_i.restVolume / std::max(sum, 0.0000001f);
 }
 
+// eq 13 mit gamma
+float SPHComputationsIISPH_PressureBoundaries::computeVolumeFluidWithGamma(Particle& particle_i) {
+    float sum = 0.0f;
+    for (auto& particle_j : particle_i.particle_neighbours) {
+        if (particle_j->isStatic) {
+            sum += particle_j->restVolume * kernel(particle_i.position, particle_j->position) * gamma_1;
+        } else {
+            sum += particle_j->restVolume * kernel(particle_i.position, particle_j->position);
+        }
+    }
+    return particle_i.restVolume / std::max(sum, 0.0000001f);
+}
+
 // does not work currently
 sf::Vector2f SPHComputationsIISPH_PressureBoundaries::computeViscosityIISPH(Particle& particle_i) {
     sf::Vector2f v_diff = sf::Vector2f(0.0f, 0.0f);
@@ -177,7 +180,7 @@ sf::Vector2f SPHComputationsIISPH_PressureBoundaries::computeViscosityIISPH(Part
 
 sf::Vector2f SPHComputationsIISPH_PressureBoundaries::predictVelocity(Particle& particle_i) {
     sf::Vector2f non_pressure_acc = computeViscosity(particle_i)
-                                    + gravity;
+                                    + gravity + computeSurfaceTension(particle_i);
     non_pressure_acc *= timeStep;
     return particle_i.velocity + non_pressure_acc;
 }
@@ -330,7 +333,7 @@ float SPHComputationsIISPH_PressureBoundaries::updatePressureBoundaries(Particle
     float omega_boundary = 0.5f * (gamma_1/((h*h) * sum));
 
     float pressure = particle_i.pressure + (omega_boundary * ((particle_i.sourceTerm - particle_i.Ap) / particle_i.diagonalElement));
-    if (pressure < 0 || std::isinf(pressure)) {
+    if (pressure < 0) {
         return 0;
     }
     return pressure;
@@ -338,17 +341,89 @@ float SPHComputationsIISPH_PressureBoundaries::updatePressureBoundaries(Particle
 
 // TODO its from SPH Extrapolation (MLS short chapter in paper)
 float SPHComputationsIISPH_PressureBoundaries::updatePressureBoundariesExtrapolation(Particle &particle_i) {
-    sf::Vector2f sum1 = sf::Vector2f(0.0f, 0.0f);
+    float sum1 = 0.0f;
     sf::Vector2f sum2 = sf::Vector2f(0.0f, 0.0f);
     float sum3 = 0.0f;
+
+    // for (auto& particle_j : particle_i.particle_neighbours) {
+    //     if (particle_j->isStatic) continue;
+    //     sum3 += kernel(particle_i.position, particle_j->position);
+    //     sum1 += particle_i.pressure * sum3;
+    //     sum2 += (particle_j->mass / particle_j->volume) * (particle_i.position - particle_j->position) * sum3;
+    // }
+    // float sum2_2 = dotProduct(gravity, sum2);
+    //
+    // return (sum1 + sum2_2) / sum3;
 
     for (auto& particle_j : particle_i.particle_neighbours) {
         if (particle_j->isStatic) continue;
         sum3 += kernel(particle_i.position, particle_j->position);
-        sum1 += particle_i.pressure * sum3 + gravity;
-        sum2 += particle_i.density * (particle_i.position - particle_j->position) * sum3;
     }
-    return dotProduct(sum1, sum2) / sum3;
+    for (auto& particle_j : particle_i.particle_neighbours) {
+        if (particle_j->isStatic) continue;
+        sum2 += (particle_j->mass / particle_j->volume) * (particle_i.position - particle_j->position)
+                * kernel(particle_i.position, particle_j->position);
+    }
+    float sum2_2 = dotProduct(gravity, sum2);
+    for (auto& particle_j : particle_i.particle_neighbours) {
+        if (particle_j->isStatic) continue;
+        sum1 += particle_i.pressure * kernel(particle_i.position, particle_j->position);
+    }
+    return (sum1 + sum2_2) / (sum3);
+}
+
+// TODO its for SPH Extrapolation (MLS short chapter in paper) eq 1
+sf::Vector2f SPHComputationsIISPH_PressureBoundaries::computePressureAccelerationExtrapolation(Particle &particle_i) {
+    sf::Vector2f sumFluid = sf::Vector2f(0.0f, 0.0f);
+    sf::Vector2f sumBoundary = sf::Vector2f(0.0f, 0.0f);
+    float density_squared_i = (particle_i.mass / particle_i.volume) * (particle_i.mass / particle_i.volume);
+
+    for (auto& particle_j : particle_i.particle_neighbours) {
+        float density_squared_j = (particle_j->mass / particle_j->volume) * (particle_j->mass / particle_j->volume);
+        if (particle_j->isStatic) {
+            sumBoundary += particle_j->mass * ((particle_i.pressure / density_squared_i) + (particle_j->pressure / density_squared_j))
+                * kernelGradient(particle_i.position, particle_j->position);
+        } else {
+            sumFluid += particle_j->mass * ((particle_i.pressure / density_squared_i) + (particle_j->pressure / density_squared_j))
+                * kernelGradient(particle_i.position, particle_j->position);
+        }
+    }
+
+    return - sumFluid - gamma_3 * sumBoundary;
+}
+
+// TODO its for Pressure Mirroring (MLS short chapter in paper) eq 2
+sf::Vector2f SPHComputationsIISPH_PressureBoundaries::computePressureAccelerationMirror(Particle &particle_i) {
+    sf::Vector2f sumFluid = sf::Vector2f(0.0f, 0.0f);
+    sf::Vector2f sumBoundary = sf::Vector2f(0.0f, 0.0f);
+    float density_squared_i = (particle_i.mass / particle_i.volume) * (particle_i.mass / particle_i.volume);
+
+    for (auto& particle_j : particle_i.particle_neighbours) {
+        float density_squared_j = (particle_j->mass / particle_j->volume) * (particle_j->mass / particle_j->volume);
+        if (particle_j->isStatic) {
+            sumBoundary += particle_j->mass * 2 *(particle_i.pressure / density_squared_i)
+                * kernelGradient(particle_i.position, particle_j->position);
+        } else {
+            sumFluid += particle_j->mass * ((particle_i.pressure / density_squared_i) + (particle_j->pressure / density_squared_j))
+                * kernelGradient(particle_i.position, particle_j->position);
+        }
+    }
+    return - sumFluid - gamma_3 * sumBoundary;
+}
+
+// TODO its for Pressure Zero at boundaries
+sf::Vector2f SPHComputationsIISPH_PressureBoundaries::computePressureAccelerationZero(Particle &particle_i) {
+    sf::Vector2f sumFluid = sf::Vector2f(0.0f, 0.0f);
+    sf::Vector2f sumBoundary = sf::Vector2f(0.0f, 0.0f);
+    float density_squared_i = (particle_i.mass / particle_i.volume) * (particle_i.mass / particle_i.volume);
+
+    for (auto& particle_j : particle_i.particle_neighbours) {
+        float density_squared_j = (particle_j->mass / particle_j->volume) * (particle_j->mass / particle_j->volume);
+        if (particle_j->isStatic) continue;
+        sumFluid += particle_j->mass * ((particle_i.pressure / density_squared_i) + (particle_j->pressure / density_squared_j))
+            * kernelGradient(particle_i.position, particle_j->position);
+    }
+    return - sumFluid;
 }
 
 
@@ -357,6 +432,7 @@ float SPHComputationsIISPH_PressureBoundaries::updatePressureBoundariesExtrapola
 // max velo and color gradient to speed
 float SPHComputationsIISPH_PressureBoundaries::getMaxVelocity(std::vector<Particle>& particles) {
     float maxSpeed = 0;
+    float minSpeed = 0;
     float speed = 0;
     float CFLNumber = 0;
 
@@ -370,6 +446,11 @@ float SPHComputationsIISPH_PressureBoundaries::getMaxVelocity(std::vector<Partic
             maxSpeed = speed;
         }
     }
+
+    // minSpeed = 0.0001f;
+    // // set threshholds
+    // float speedThreshold1 = minSpeed + 0.1f * (maxSpeed - minSpeed);
+    // float speedThreshold2 = minSpeed + 0.8f * (maxSpeed - minSpeed);
 
     // Loop through each particle to apply the color based on the absolute speed
     for (auto& particle : particles) {
@@ -483,7 +564,9 @@ void SPHComputationsIISPH_PressureBoundaries::isCFLConditionTrue(std::vector<Par
     } else {
         CFLCondition = false;
     }
-    timeStep = computeAdaptiveTimeStep(check);
+    if (adaptiveTimeStepping) {
+        timeStep = computeAdaptiveTimeStep(check);
+    }
 }
 
 float SPHComputationsIISPH_PressureBoundaries::getCourantNumber(std::vector<Particle>& particles) {
@@ -528,10 +611,19 @@ float SPHComputationsIISPH_PressureBoundaries::getAvgDensity(std::vector<Particl
 }
 
 void SPHComputationsIISPH_PressureBoundaries::writeCurrentIterationToFile(const std::string& filename) {
-    // Append the average density value to the text file
+    // // Append the average density value to the text file
+    // std::ofstream outFile(filename, std::ios_base::app);
+    // if (outFile.is_open()) {
+    //     outFile << currentIterations << "\n";
+    //     outFile.close();
+    // } else {
+    //     std::cerr << "Unable to open file " << filename << std::endl;
+    // }
+
+    // changed fast to volume error
     std::ofstream outFile(filename, std::ios_base::app);
     if (outFile.is_open()) {
-        outFile << currentIterations << "\n";
+        outFile << currentVolumeError << "\n";
         outFile.close();
     } else {
         std::cerr << "Unable to open file " << filename << std::endl;

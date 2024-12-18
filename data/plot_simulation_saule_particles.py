@@ -19,15 +19,16 @@ def calculate_average(data):
 def main():
     # File names and labels for the data files
     files = [
-        ("currentIterations_normalPressureInit.txt", "Normal Pressure Init"),
-        ("currentIterations_maxPressureInit.txt", "Particles Max Pressure Init")
+        ("currentVolumeError_Mirror_Gamma_1.2.txt", "Mirroring Gamma 1.2"),
+        ("currentVolumeError_Mirror_Gamma_0.7.txt", "Mirroring Gamma 0.7"),
+        ("currentVolumeError_PressureBoundaries.txt", "Pressure Boundaries")
     ]
     
     # Path to the directory containing the data files
     base_path = "/Users/jan/Desktop/SPH_Fluid_with_IISPH/cmake-build-debug/"
     
     # Colors for the different lines
-    colors = ['blue', 'green']
+    colors = ['blue', 'cyan', 'green']
     
     # Store averages for each file
     averages = []
@@ -39,8 +40,8 @@ def main():
         file_path = base_path + file_name
         iteration_data = read_file(file_path)
         try:
-            # Convert each line into an integer (assumes data in the files are numbers)
-            iteration_values = [int(float(value)) for value in iteration_data]
+            # Convert each line into a float (preserve precision)
+            iteration_values = [float(value) for value in iteration_data]
         except ValueError:
             print(f"Error: Non-numeric data found in {file_name}.")
             continue
@@ -57,13 +58,13 @@ def main():
 
     # Plot settings
     plt.xlabel('Simulation Steps')
-    plt.ylabel('Needed Iterations')
-    plt.title('Pillar Test for Different Pressure Initialization')
+    plt.ylabel('Volume Error')
+    plt.title('Pillar Test for IISPH with Different Boundary Handling Schemes')
     plt.grid(True)
     plt.legend(loc='upper right')
 
     # Create average information for each file
-    average_text = "\n".join([f"Avg Iterations for {label}: {avg:.2f}" for label, avg in averages])
+    average_text = "\n".join([f"Avg Volume Error for {label}: {avg:.8f}" for label, avg in averages])
     
     # Add a text box with averages in the lower left corner of the plot
     plt.text(0.02, 0.98, average_text, fontsize=10, verticalalignment='top', horizontalalignment='left',

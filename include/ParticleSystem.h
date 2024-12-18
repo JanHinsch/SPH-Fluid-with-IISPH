@@ -32,24 +32,6 @@ public:
 
     static void rotateBoundaryParticles(std::vector<Particle> &particles,float centerX, float centerY, float angle);
 
-    void addBox(int numParticles);
-
-    void addBox2(int x, int y);
-
-    void addBoxAnalyse(int x, int y);
-
-    void addBoundaries(int numParticles, int x , int y);
-
-    void addBoundaries2(int numParticles, int x, int y);
-
-    void addMovingBoundaries(int numParticles, int x, int y);
-
-    void addBoundariesWithAngle(int numParticles, int x, int y, float angle);
-
-    void addBoundariesInHalfCircle(float h, int centerX, int centerY, float radius, float startAngle);
-
-    void addBoundaries3(int numParticles, int x, int y);
-
     std::vector<Particle*> generateSortedList(std::vector<Particle>& particles);
 
     // Set start values of simulation (place particles etc.)
@@ -57,9 +39,15 @@ public:
 
     void updateParticlesEOS(std::vector<Particle>& particles, int x_size_screen, int y_size_screen);
 
-    void updateParticlesIISPH(std::vector<Particle>& particles, int x_size_screen, int y_size_screen);
+    void updateParticlesIISPHPressureBoundaries(std::vector<Particle>& particles, int x_size_screen, int y_size_screen);
 
     void updateParticlesIISPH_Extrapolation(std::vector<Particle>& particles, int x_size_screen, int y_size_screen);
+
+    void updateParticlesIISPH_Mirroring(std::vector<Particle>& particles, int x_size_screen, int y_size_screen);
+
+    void updateParticlesIISPH_MLSExtrapolation(std::vector<Particle> &particles, int x_size_screen, int y_size_screen);
+
+    void updateParticlesIISPH_Zero(std::vector<Particle> &particles, int x_size_screen, int y_size_screen);
 
     void updateParticlesDFSPH(std::vector<Particle>& particles, int x_size_screen, int y_size_screen);
 

@@ -47,6 +47,12 @@ public:
 
     static float updatePressureBoundariesExtrapolation(Particle &particle_i);
 
+    static sf::Vector2f computePressureAccelerationExtrapolation(Particle &particle_i);
+
+    static sf::Vector2f computePressureAccelerationMirror(Particle &particle_i);
+
+    static sf::Vector2f computePressureAccelerationZero(Particle &particle_i);
+
     static sf::Vector2f computeViscosity(Particle& particle_i);
 
     static sf::Vector2f computeSurfaceTension(Particle &particle_i);
@@ -74,6 +80,8 @@ public:
     static float computeVolumeBoundary(Particle &particle_i);
 
     static float computeVolumeFluid(Particle &particle_i);
+
+    static float computeVolumeFluidWithGamma(Particle &particle_i);
 
     static sf::Vector2f computeViscosityIISPH(Particle &particle_i);
 

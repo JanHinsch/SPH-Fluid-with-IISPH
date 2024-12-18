@@ -22,6 +22,8 @@ extern float viscosityFactor;
 
 extern sf::Vector2f gravity;
 
+extern bool adaptiveTimeStepping;
+
 extern float timeStep;
 
 extern const float lambda;
@@ -36,17 +38,25 @@ extern bool IISPH_Pressure_Boundaries;
 
 extern bool IISPH_Pressure_Extrapolation;
 
-extern bool DFSPH_Pressure;
+extern bool IISPH_Pressure_Mirroring;
+
+extern bool IISPH_Pressure_Zero;
+
+extern bool IISPH_MLS_Pressure_Extrapolation;
 
 extern int countFluidParticles;
 
 extern int currentIterations;
+
+extern float currentVolumeError;
 
 extern bool pressureColors;
 
 extern float gamma_1;
 
 extern float gamma_2;
+
+extern float gamma_3;
 
 extern float omega;
 

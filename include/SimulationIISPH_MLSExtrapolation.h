@@ -63,6 +63,8 @@ public:
 
     static float updatePressureBoundaries(Particle &particle_i);
 
+    static float updatePressureMLSFluid(Particle &particle_i);
+
     static sf::Vector2f computeViscosity(Particle& particle_i);
 
     static sf::Vector2f computeSurfaceTension(Particle &particle_i);

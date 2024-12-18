@@ -32,6 +32,7 @@ add_executable(main
     src/UIManager.cpp
     src/main.cpp
         src/SimulationIISPH_MLSExtrapolation.cpp
+        src/ParticleSpawning.cpp
 
 )
 
@@ -48,6 +49,7 @@ add_executable(tests_neighbour
     src/ParticleSystem.cpp
         src/SimulationEOS.cpp
     src/Visualization.cpp
+        src/ParticleSpawning.cpp
 )
 
 add_executable(tests_SPH_Kernel
@@ -57,6 +59,7 @@ add_executable(tests_SPH_Kernel
     src/ParticleSystem.cpp
         src/SimulationEOS.cpp
     src/Visualization.cpp
+        src/ParticleSpawning.cpp
 )
 
 # add_executable(tests_SPH_Kernel_multiple_Particles
@@ -76,6 +79,7 @@ add_executable(tests_SPH_Computations
         src/SimulationEOS.cpp
         src/SimulationIISPH_PressureBoundaries.cpp
     src/Visualization.cpp
+        src/ParticleSpawning.cpp
 )
 
 # Include Catch2

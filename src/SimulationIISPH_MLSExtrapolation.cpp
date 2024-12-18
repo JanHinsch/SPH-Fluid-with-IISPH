@@ -130,6 +130,26 @@ float SPHComputationsIISPH_MLSExtra::computeDensity(Particle& particle) {
     return density_i;
 }
 
+// float SPHComputationsIISPH_MLSExtra::computeFactorLambda(Particle& particle_i) {
+//     sf::Vector2f sum1 = sf::Vector2f(0.0f, 0.0f);
+//     float sum2 = 0.0f;
+//
+//     for (auto& particle_j : particle_i.particle_neighbours) {
+//         sum1 += particle_j->mass * kernelGradient(particle_i.position, particle_j->position);
+//     }
+//     float sum1NormSq = sum1.x * sum1.x + sum1.y * sum1.y;
+//
+//     for (auto& particle_j : particle_i.particle_neighbours) {
+//         if (particle_j->isStatic) continue;
+//         sf:tgui::Vector2f kernelSum = kernelGradient(particle_i.position, particle_j->position);
+//         float kernelSumSq = kernelSum.x * kernelSum.x + kernelSum.y * kernelSum.y;
+//
+//         sum2 += particle_i.mass * particle_j->mass * kernelSumSq;
+//     }
+//
+//     return (sum1NormSq + sum2) / (- particle_i.density * particle_i.density);
+// }
+
 float SPHComputationsIISPH_MLSExtra::computeFactorLambda(Particle& particle_i) {
     sf::Vector2f sum1 = sf::Vector2f(0.0f, 0.0f);
     float sum2 = 0.0f;
@@ -147,7 +167,7 @@ float SPHComputationsIISPH_MLSExtra::computeFactorLambda(Particle& particle_i) {
         sum2 += particle_i.mass * particle_j->mass * kernelSumSq;
     }
 
-    return (sum1NormSq + sum2) / (- particle_i.density * particle_i.density);
+    return (sum1NormSq + sum2) / (- (particle_i.mass/particle_i.volume) * (particle_i.mass/particle_i.volume));
 }
 
 float SPHComputationsIISPH_MLSExtra::computeSourceTermDivergenceFree(Particle& particle_i) {
@@ -176,14 +196,10 @@ float SPHComputationsIISPH_MLSExtra::setPressureDivergenceError(Particle& partic
     float sumFluid = 0.0f;
     for (auto& particle_j : particle_i.particle_neighbours) {
         if (particle_j->isStatic) continue;
-        sumFluid += (particle_j->mass / particle_j->density) *
+        sumFluid += particle_j->volume *
             dotProduct((particle_i.acceleration - particle_j->acceleration), kernelGradient(particle_i.position, particle_j->position));
     }
     sumFluid *= -1;
-
-    // if (particle_i.diagonalElement == 0.0f) {
-    //     return 0.0f;
-    // }
 
     float ret = particle_i.pressure + (omega / particle_i.diagonalElement) * (particle_i.sourceTerm - sumFluid);
 
@@ -194,7 +210,7 @@ float SPHComputationsIISPH_MLSExtra::setPressureDensityError(Particle& particle_
     float sumFluid = 0.0f;
     for (auto& particle_j : particle_i.particle_neighbours) {
         if (particle_j->isStatic) continue;
-        sumFluid += (particle_j->mass / particle_j->density) *
+        sumFluid += particle_j->volume *
             dotProduct((particle_i.acceleration - particle_j->acceleration), kernelGradient(particle_i.position, particle_j->position));
     }
     sumFluid *= -1;
@@ -206,17 +222,45 @@ float SPHComputationsIISPH_MLSExtra::setPressureDensityError(Particle& particle_
     return std::max(0.0f,particle_i.pressure + (omega / particle_i.diagonalElement) * (particle_i.sourceTerm - sumFluid));
 }
 
+// float SPHComputationsIISPH_MLSExtra::computeAlpha(Particle& particle_i) {
+//     float sum1 = 0.0f;
+//     float sum2 = 0.0f;
+//
+//     for (auto& particle_j : particle_i.particle_neighbours) {
+//         if (particle_j->isStatic) continue;
+//         sum1 += particle_j->mass / particle_j->density * kernel(particle_i.position, particle_j->position);
+//         sum2 += sum1 * particle_j->pressure;
+//     }
+//     return sum2 / sum1;
+// }
+
 float SPHComputationsIISPH_MLSExtra::computeAlpha(Particle& particle_i) {
     float sum1 = 0.0f;
     float sum2 = 0.0f;
 
     for (auto& particle_j : particle_i.particle_neighbours) {
         if (particle_j->isStatic) continue;
-        sum1 += particle_j->mass / particle_j->density * kernel(particle_i.position, particle_j->position);
+        sum1 += particle_j->volume * kernel(particle_i.position, particle_j->position);
         sum2 += sum1 * particle_j->pressure;
     }
     return sum2 / sum1;
 }
+
+// // compute db and return the basis transformation
+// sf::Vector2f SPHComputationsIISPH_MLSExtra::computeDb(Particle& particle_i) {
+//     float sum1 = 0.0f;
+//     sf::Vector2f sum2 = sf::Vector2f(0.0f, 0.0f);
+//
+//     for (auto& particle_j : particle_i.particle_neighbours) {
+//         if (particle_j->isStatic) continue;
+//         sum1 += (particle_j->mass / particle_j->density) * kernel(particle_i.position, particle_j->position);
+//         sum2 += sum1 * particle_j->position;
+//     }
+//
+//     sf::Vector2f db = sum2 / sum1;
+//
+//     return particle_i.position - db;
+// }
 
 // compute db and return the basis transformation
 sf::Vector2f SPHComputationsIISPH_MLSExtra::computeDb(Particle& particle_i) {
@@ -225,7 +269,7 @@ sf::Vector2f SPHComputationsIISPH_MLSExtra::computeDb(Particle& particle_i) {
 
     for (auto& particle_j : particle_i.particle_neighbours) {
         if (particle_j->isStatic) continue;
-        sum1 += (particle_j->mass / particle_j->density) * kernel(particle_i.position, particle_j->position);
+        sum1 += particle_j->volume * kernel(particle_i.position, particle_j->position);
         sum2 += sum1 * particle_j->position;
     }
 
@@ -271,6 +315,50 @@ sf::Vector2f computeHyperplaneCoefficients(const Eigen::Matrix2f& M_inv, const s
     return result;
 }
 
+// // returns pressure
+// float SPHComputationsIISPH_MLSExtra::computePressureMLS(Particle& particle_i) {
+//     sf::Vector2f basisVector = computeDb(particle_i);
+//
+//     // Compute elements of the 2D matrix
+//     float sumX2 = 0.0f, sumY2 = 0.0f, sumXY = 0.0f;
+//     sf::Vector2f sum2Value = sf::Vector2f(0.0f, 0.0f);
+//     for (auto& particle_j : particle_i.particle_neighbours) {
+//         // Matrix M values
+//         if (particle_j->isStatic) continue;
+//         sumX2 += basisVector.x * basisVector.x;
+//         sumXY += basisVector.x * basisVector.y;
+//         sumY2 += basisVector.y * basisVector.y;
+//
+//         float kernelValue = kernel(particle_i.position, particle_j->position);
+//         float kernelValueSum = kernelValue * (particle_j->mass / particle_j->density);
+//         sumX2 *= kernelValueSum;
+//         sumXY *= kernelValueSum;
+//         sumY2 *= kernelValueSum;
+//
+//
+//         // second term values
+//         sum2Value += basisVector * particle_j->pressure * kernelValueSum;
+//     }
+//
+//     // inverse M
+//     Eigen::Matrix2f M;
+//     M << sumX2, sumXY,
+//          sumXY, sumY2;
+//
+//     // Safely invert the matrix
+//     Eigen::Matrix2f M_inv = safeInvertMatrix(M);
+//
+//     // compute hyperplane coefficients vector
+//     sf::Vector2f planeCoefficients_noAlpha = computeHyperplaneCoefficients(M_inv, sum2Value);
+//
+//     // construct c vector (all hyperplane coefficients with alpha, beta, gamma)
+//     float alpha = computeAlpha(particle_i);
+//     sf::Vector3f planeCoefficients = sf::Vector3f(alpha, planeCoefficients_noAlpha.x, planeCoefficients_noAlpha.y);
+//     sf::Vector3f basisVectorwith1 = sf::Vector3f(1, basisVector.x, basisVector.y);
+//
+//     return dotProduct3f(planeCoefficients, basisVectorwith1);
+// }
+
 // returns pressure
 float SPHComputationsIISPH_MLSExtra::computePressureMLS(Particle& particle_i) {
     sf::Vector2f basisVector = computeDb(particle_i);
@@ -286,7 +374,7 @@ float SPHComputationsIISPH_MLSExtra::computePressureMLS(Particle& particle_i) {
         sumY2 += basisVector.y * basisVector.y;
 
         float kernelValue = kernel(particle_i.position, particle_j->position);
-        float kernelValueSum = kernelValue * (particle_j->mass / particle_j->density);
+        float kernelValueSum = kernelValue * particle_j->volume;
         sumX2 *= kernelValueSum;
         sumXY *= kernelValueSum;
         sumY2 *= kernelValueSum;
@@ -301,8 +389,23 @@ float SPHComputationsIISPH_MLSExtra::computePressureMLS(Particle& particle_i) {
     M << sumX2, sumXY,
          sumXY, sumY2;
 
+    // Check if M is invertible
+    float determinant = M.determinant();
+    const float epsilon = 1e-6f; // Small threshold for floating-point precision
+    // Eigen::Matrix2f M_inv;
+    // if (std::abs(determinant) < epsilon) {
+    //     // Matrix M is singular or ill-conditioned
+    //     // std::cerr << "Matrix M is not invertible. Determinant: " << determinant << "\n";
+    //     // return 0.0f; // Return fallback pressure (e.g., 0)
+    //     M_inv = safeInvertMatrix(M);
+    // } else {
+    //     // Safely invert the matrix
+    //     M_inv = M.inverse(); // Compute the inverse (no SVD)!!!
+    // }
+
     // Safely invert the matrix
     Eigen::Matrix2f M_inv = safeInvertMatrix(M);
+    // Eigen::Matrix2f M_inv = M.inverse(); // Compute the inverse (no SVD)!!!
 
     // compute hyperplane coefficients vector
     sf::Vector2f planeCoefficients_noAlpha = computeHyperplaneCoefficients(M_inv, sum2Value);
@@ -312,24 +415,60 @@ float SPHComputationsIISPH_MLSExtra::computePressureMLS(Particle& particle_i) {
     sf::Vector3f planeCoefficients = sf::Vector3f(alpha, planeCoefficients_noAlpha.x, planeCoefficients_noAlpha.y);
     sf::Vector3f basisVectorwith1 = sf::Vector3f(1, basisVector.x, basisVector.y);
 
-    return dotProduct3f(planeCoefficients, basisVectorwith1);
+    return dotProduct3f(basisVectorwith1, planeCoefficients);
 }
 
+// sf::Vector2f SPHComputationsIISPH_MLSExtra::computePressureAcceleration(Particle &particle_i) {
+//     sf::Vector2f sum = sf::Vector2f(0.0f, 0.0f);
+//
+//     for (auto& particle_j : particle_i.particle_neighbours) {
+//         if (particle_j->isStatic) {
+//             sum += particle_j->mass * ((particle_i.pressure / (particle_i.density * particle_i.density))
+//                                         + (particle_j->pressure / (particle_j->density * particle_j->density)))
+//                                         * kernelGradient(particle_i.position, particle_j->position);
+//         } else {
+//             sum += particle_j->mass * ((particle_i.pressure / (particle_i.density * particle_i.density))
+//                                         + (particle_j->pressure / (particle_j->density * particle_j->density)))
+//                                         * kernelGradient(particle_i.position, particle_j->position);
+//         }
+//     }
+//     return - sum;
+// }
+
 sf::Vector2f SPHComputationsIISPH_MLSExtra::computePressureAcceleration(Particle &particle_i) {
-    sf::Vector2f sum = sf::Vector2f(0.0f, 0.0f);
+    sf::Vector2f sumF = sf::Vector2f(0.0f, 0.0f);
+    sf::Vector2f sumB = sf::Vector2f(0.0f, 0.0f);
+    float densityisq = (particle_i.mass/particle_i.volume) * (particle_i.mass/particle_i.volume);
 
     for (auto& particle_j : particle_i.particle_neighbours) {
+        float densityjsq = (particle_j->mass/particle_j->volume) * (particle_j->mass/particle_j->volume);
+
         if (particle_j->isStatic) {
-            sum += particle_j->mass * ((particle_i.pressure / (particle_i. density * particle_i.density))
-                                        + (particle_j->pressure / (particle_j->density * particle_j->density)))
+            sumB += particle_j->mass * ((particle_i.pressure / densityisq))
                                         * kernelGradient(particle_i.position, particle_j->position);
         } else {
-            sum += particle_j->mass * ((particle_i.pressure / (particle_i. density * particle_i.density))
-                                        + (particle_j->pressure / (particle_j->density * particle_j->density)))
+            sumF += particle_j->mass * ((particle_i.pressure / densityisq)
+                                        + (particle_j->pressure / densityjsq))
                                         * kernelGradient(particle_i.position, particle_j->position);
         }
     }
-    return - sum;
+    return -sumF - gamma_3 * sumB;
+
+    // for (auto& particle_j : particle_i.particle_neighbours) {
+    //     float densityjsq = (particle_j->mass/particle_j->volume) * (particle_j->mass/particle_j->volume);
+    //     sum += particle_j->mass * ((particle_i.pressure / densityisq)
+    //                                 + (particle_j->pressure / densityjsq))
+    //                                 * kernelGradient(particle_i.position, particle_j->position);
+    // }
+    // return - sum;
+}
+
+float SPHComputationsIISPH_MLSExtra::updatePressureMLSFluid(Particle &particle_i) {
+    float pressure = setPressureDivergenceError(particle_i);
+    if (pressure < 0) {
+        return 0;
+    }
+    return pressure;
 }
 
 

@@ -25,26 +25,32 @@ float particleRestVolume = std::pow(h, 2);
 
 float density_rest = 0.01f;  // Example value
 
-float viscosityFactor = 0.04f;  // Example value, adjust based on your fluid properties also called mü
+float viscosityFactor = 0.004f;  // Example value, adjust based on your fluid properties also called mü
 
 sf::Vector2f gravity = sf::Vector2f(0.0f, 9.8f);
 
 // adaptive timeStepping
+bool adaptiveTimeStepping = false;
+
 float timeStep = 0.007f;
 
 const float lambda = 0.5f;
 
-const float minTimeStep = 0.001f;
+const float minTimeStep = 0.0008f;
 
-const float maxTimeStep = 0.008;
+const float maxTimeStep = 0.01;
 
 bool EOS_Pressure = false;
 
-bool IISPH_Pressure_Boundaries = false;
+bool IISPH_Pressure_Boundaries = true;
 
-bool IISPH_Pressure_Extrapolation = true;
+bool IISPH_Pressure_Extrapolation = false;
 
-bool DFSPH_Pressure = false;
+bool IISPH_Pressure_Mirroring = false;
+
+bool IISPH_Pressure_Zero = false;
+
+bool IISPH_MLS_Pressure_Extrapolation = false;
 
 // when true print pressure color when false print velocity
 bool pressureColors = true;
@@ -55,17 +61,22 @@ int countFluidParticles = 0;
 // as counter for IISPH PPE Solver Iterations
 int currentIterations = 0;
 
+// real Volume Error
+float currentVolumeError;
 
-float speedThreshold1 = 0.0f;  // Blue to Cyan
-float speedThreshold2 = 0.0f;  // Cyan to Green
 
-// float speedThreshold1 = 20.0f;  // Blue to Cyan for velo
-// float speedThreshold2 = 40.0f;  // Cyan to Green for velo
+// float speedThreshold1 = 0.0f;  // Blue to Cyan
+// float speedThreshold2 = 0.0f;  // Cyan to Green
+
+float speedThreshold1 = 20.0f;  // Blue to Cyan for velo
+float speedThreshold2 = 40.0f;  // Cyan to Green for velo
 
 // used in IISPH
-float gamma_1 = 0.7f; // keep between 0.0f and 1.0f -> best is 0.7f
-// unused
-float gamma_2 = 0.25f; // apparently often > 1.0f
+float gamma_1 = 0.7f; // keep between 0.0f and 1.0f -> best is 0.7f -> used in RestVolumeBoundary calc for Pressure Boundaries
+// used
+float gamma_2 = 0.25f; // apparently often > 1.0f -> used in compute volumeboundary for pressureBoundaries
+
+float gamma_3 = 1.0f; // used in pressure acc for mirroring as well as MLS Extrapolation and SPH Extrapolation
 
 // used in IISPH updatePressure
 float omega = 0.5f;

@@ -7,17 +7,16 @@
 #include "../include/UIManager.h"
 #include <cstdlib>
 #include <cmath>
-#include "ParticleSystem.h"
-
 #include <SimulationIISPH_MLSExtrapolation.h>
+#include <../external/eigen-master/Eigen/Dense>
+
+#include "ParticleSpawning.h"
+
 
 ParticleSystem::ParticleSystem(unsigned int count) : m_particles(count), C(numCellsX, numCellsY), L(m_particles.size() +
-                                                                                                    // 200 * 3 +
-                                                                                                    // 80 * 2 +
-                                                                                                    // 113 * 2 +
-                                                                                                    // 400 * 1
-                                                                                                    15 * 1 +
+                                                                                                    15 * 2 +
                                                                                                     110 * 2
+                                                         // 250 * 1
                                                      ) {}
 
 ////////////////////// Simulation Part ////////////////////////////
@@ -80,16 +79,38 @@ void ParticleSystem::initiateParticles(std::vector<Particle>& particles) {
 
     ///////////////////////////// Analyse /////////////////////
 
-    addBoundaries(15, 318, 662); // short bottom
+    // use 1008 particles with 12 addbox
+
+    ParticleSpawning::addBoundaries(15, 318, 662, m_particles); // short bottom
     // addBoundaries(15, 318, 664); // short bottom
     // left boundary
-    addBoundaries2(110, 316, 444);
+    ParticleSpawning::addBoundaries2(110, 316, 444, m_particles);
     // addBoundaries2(100, 318, 464);
     // right boundary
-    addBoundaries2(110, 348, 444);
+    ParticleSpawning::addBoundaries2(110, 348, 444, m_particles);
     // addBoundaries2(100, 346, 464);
+    // top boundary
+    ParticleSpawning::addBoundaries(15, 318, 444, m_particles);
 
-    addBoxAnalyse(321, 455);
+    ParticleSpawning::addBoxAnalyse(321, 486, 12, m_particles);
+
+
+
+    ///////////////////////////// Rotating Circle /////////////////////
+
+    // use 1480 Particles and 40 layer
+
+    // addBoxAnalyse(240, 255, 40);
+    //
+    // // addRotatingCircle(300, 300, 100, 0.25f);
+    //
+    // // addRotatingCircleWithTriangles(300, 300, 100, 0.25f, 2.0f, 3, 20.0f);
+    // // Center at (300, 300), radius 100, angular velocity 0.5, spacing 5, 3 triangles, height 20
+    //
+    // addRotatingCircleWithRectangle(
+    // 300, 300, 100, 0.25f, 2.0f, 50.0f, 20.0f, 6.0f);
+    // // Center: (300, 300), radius: 100, angular velocity: 0.5, spacing: 5,
+    // // rectangle width: 50, height: 20, offset: 10
 
 
     //////////////////////////////////////////////////////////
@@ -110,7 +131,6 @@ void ParticleSystem::initiateParticles(std::vector<Particle>& particles) {
         particle.volume = 0.0f;
 
 
-
         //printf("Volume %f", particleVolume);
         //printf("Mass %f", particleMass);
 
@@ -119,8 +139,6 @@ void ParticleSystem::initiateParticles(std::vector<Particle>& particles) {
             countFluidParticles++;
         }
     }
-
-
 }
 
 // int countDir = 0; // for moveable boundary 
@@ -202,7 +220,7 @@ void ParticleSystem::updateParticlesEOS(std::vector<Particle>& particles, int x_
 }
 
 // Simulation Step of solver with IISPH and Pressure Boundaries
-void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int x_size_screen, int y_size_screen) {
+void ParticleSystem::updateParticlesIISPHPressureBoundaries(std::vector<Particle>& particles, int x_size_screen, int y_size_screen) {
 
      /////////// Index search
      // Calculate the total number of cells in the grid and initialize C
@@ -240,7 +258,18 @@ void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int 
         if (!(particle.isStatic)) {
             // compute real error
             // real_V_error += (particle.volume - particleRestVolume);
-            float real_V_error = std::abs(particle.volume - particleRestVolume) / particleRestVolume * 100.0f;
+            // float real_V_error = std::abs(particle.volume - particleRestVolume) / particleRestVolume * 100.0f;
+            // real_V_error_sum += real_V_error;
+
+            float real_V_error;
+            if (particle.volume > particleRestVolume) {
+                real_V_error = 0.0f;
+            } else {
+                // real_V_error = std::abs(particle.volume - particleRestVolume) / particleRestVolume * 100.0f;
+                real_V_error = ((particle.volume - particleRestVolume)) / particleRestVolume) * 100.0f;
+                // Calculate the relative volume error
+                // real_V_error = std::abs(particle.volume - particleRestVolume) / particleRestVolume * 100.0f;
+            }
             real_V_error_sum += real_V_error;
         }
     }
@@ -267,8 +296,10 @@ void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int 
         // normal pressure initialising
         // particle.pressure = 0.0f;
 
-        // als test TODO: Entfernen allerding glaube ich das hier ist besser -> mach hierzu mal Iteration Analyse
-        particle.pressure = std::max(particle.sourceTerm/particle.diagonalElement, 0.0f);
+        particle.pressure = particle.pressure * 0.4f;
+
+        // als test TODO: Entfernen allerding glaube ich das hier ist besser -> mach hierzu mal Iteration Analyse -> mit omega multiplizieren
+        // particle.pressure = std::max(particle.sourceTerm/particle.diagonalElement, 0.0f) * omega;
     }
 
     int iterations_l = 0;
@@ -325,7 +356,7 @@ void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int 
         // Average the volume and density errors across particles
         V_error /= particles.size();
 
-        if (V_error < 0.1f && iterations_l > 1) {
+        if (V_error < 0.01f && iterations_l > 1) {
             currentIterations = iterations_l;
             // Compute and write the curren Iterattion to the file TODO file write section
             // std::string iterationFile = "currentIterations_maxPressureInit.txt";
@@ -337,11 +368,17 @@ void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int 
         iterations_l++;
     }
 
+    currentVolumeError = real_V_error_sum;
     // std::cout << "\rreal Error: " << real_V_error_sum << "% Time Step: " << timeStep << std::flush;
     // std::cout << "\rreal Error: " << percentage_V_error << std::flush;
 
     // printf("real Error: %f \n", real_V_error);
     // printf("next \n \n");
+
+    // TODO write volume error txt
+    // Compute and write the curren Iterattion to the file
+    // std::string volumeErrorFile = "currentVolumeError_PressureBoundaries.txt";
+    // SPHComputationsIISPH_PressureBoundaries::writeCurrentIterationToFile(volumeErrorFile);
 
      SPHComputationsIISPH_PressureBoundaries::advectParticles(particles);
 
@@ -349,9 +386,16 @@ void ParticleSystem::updateParticlesIISPH(std::vector<Particle>& particles, int 
 
     // printf("Courant Number: %f \n", SPHComputationsIISPH::getCourantNumber(particles));
     // std::cout << "\rCourant Number: %f" << SPHComputationsIISPH::getCourantNumber(particles) << std::flush;
+
+    // all for circle rotating
+    // moveRotatingCircle(300, 300, 100, 0.25f, timeStep);
+    // moveRotatingCircleWithTriangles(300, 300, 100, 0.25f, timeStep);
+    // moveRotatingCircleWithRectangle(
+    // 300, 300, 100, 0.5f, timeStep, 5.0f);
+
 }
 
-// Simulation Step of solver with IISPH and Pressure Boundaries
+// Simulation Step of solver with IISPH and SPH Pressure Extrapolation (eq 3 for pressure at boundary)
 void ParticleSystem::updateParticlesIISPH_Extrapolation(std::vector<Particle>& particles, int x_size_screen, int y_size_screen) {
 
      /////////// Index search
@@ -374,23 +418,19 @@ void ParticleSystem::updateParticlesIISPH_Extrapolation(std::vector<Particle>& p
 
     float real_V_error_sum = 0.0f;
 
-    // as in Pressure Boundary IISPH Paper 2018
     for (auto& particle : particles) {
-        if (particle.isStatic) {
-            particle.restVolume = SPHComputationsIISPH_PressureBoundaries::computeRestVolumeBoundary(particle);
-            particle.volume = SPHComputationsIISPH_PressureBoundaries::computeVolumeBoundary(particle);
-        }
-    }
 
-    for (auto& particle : particles) {
-        if (!(particle.isStatic)) {
-            particle.volume = SPHComputationsIISPH_PressureBoundaries::computeVolumeFluid(particle);
-        }
+        particle.volume = SPHComputationsIISPH_PressureBoundaries::computeVolumeFluid(particle);
 
         if (!(particle.isStatic)) {
             // compute real error
             // real_V_error += (particle.volume - particleRestVolume);
-            float real_V_error = std::abs(particle.volume - particleRestVolume) / particleRestVolume * 100.0f;
+            float real_V_error;
+            if (particle.volume > particleRestVolume) {
+                real_V_error = 0.0f;
+            } else {
+                real_V_error = std::abs(particle.volume - particleRestVolume) / particleRestVolume * 100.0f;
+            }
             real_V_error_sum += real_V_error;
         }
     }
@@ -420,6 +460,9 @@ void ParticleSystem::updateParticlesIISPH_Extrapolation(std::vector<Particle>& p
         // als test TODO: Entfernen allerding glaube ich das hier ist besser
         particle.pressure = std::max(particle.sourceTerm/particle.diagonalElement, 0.0f);
 
+        // if (particle.isStatic) {
+        //     particle.pressure = SPHComputationsIISPH_PressureBoundaries::updatePressureBoundariesExtrapolation(particle);
+        // }
     }
 
     int iterations_l = 0;
@@ -432,7 +475,7 @@ void ParticleSystem::updateParticlesIISPH_Extrapolation(std::vector<Particle>& p
         // for each fluid sample compute pressure acc
         for (auto& particle : particles) {
             if (particle.isStatic) continue;
-            particle.acceleration = SPHComputationsIISPH_PressureBoundaries::computePressureAcceleration(particle);
+            particle.acceleration = SPHComputationsIISPH_PressureBoundaries::computePressureAccelerationExtrapolation(particle);
 
             // remove out of bounds particles
             if (particle.position.x < 20 || particle.position.x > x_size_screen - 40 || particle.position.y < 20 || particle.position.y > y_size_screen - 40) {
@@ -442,22 +485,30 @@ void ParticleSystem::updateParticlesIISPH_Extrapolation(std::vector<Particle>& p
         }
 
         for (auto& particle : particles) {
+            if (std::abs(particle.diagonalElement) != 0.0f) {
+                if (particle.isStatic) {
+                    particle.pressure = SPHComputationsIISPH_PressureBoundaries::updatePressureBoundariesExtrapolation(particle);
+                }
+            }
+        }
+
+        for (auto& particle : particles) {
             if (particle.isStatic) {
                 particle.Ap = SPHComputationsIISPH_PressureBoundaries::computeApBoundary(particle);
             } else {
                 particle.Ap = SPHComputationsIISPH_PressureBoundaries::computeApFluid(particle);
             }
 
-            // mit omega boundary handling
-            if (particle.diagonalElement != 0.0f) {
+            // mit extrapolation boundary handling
+            if (std::abs(particle.diagonalElement) > 1e-6f) {
                 if (particle.isStatic) {
-                    particle.pressure = SPHComputationsIISPH_PressureBoundaries::updatePressureBoundariesExtrapolation(particle);
+                    // particle.pressure = SPHComputationsIISPH_PressureBoundaries::updatePressureBoundariesExtrapolation(particle);
                 } else {
                     particle.pressure = SPHComputationsIISPH_PressureBoundaries::updatePressure(particle);
                 }
             }
 
-            // ohne spezielle update pressure omega handling
+            // ohne extrapolation handling
             // particle.pressure = SPHComputationsIISPH::updatePressure(particle);
 
             // volume error fluid and boundary
@@ -482,8 +533,321 @@ void ParticleSystem::updateParticlesIISPH_Extrapolation(std::vector<Particle>& p
             // printf("iterations needed: %d \n", iterations_l);
 
             // Compute and write the curren Iterattion to the file
-            std::string iterationFile = "currentIterations_1500.txt";
-            SPHComputationsIISPH_PressureBoundaries::writeCurrentIterationToFile(iterationFile);
+            // std::string iterationFile = "currentIterations_1500.txt";
+            // SPHComputationsIISPH_PressureBoundaries::writeCurrentIterationToFile(iterationFile);
+            break;
+        }
+
+        iterations_l++;
+    }
+
+    std::cout << "\rreal Error: " << real_V_error_sum << "% Time Step: " << timeStep << std::flush;
+
+     SPHComputationsIISPH_PressureBoundaries::advectParticles(particles);
+
+     SPHComputationsIISPH_PressureBoundaries::isCFLConditionTrue(particles);
+
+    ParticleSpawning::moveRotatingCircle(300, 300, 100, 0.25f, timeStep, m_particles);
+}
+
+// Simulation Step of solver with IISPH and Mirroring for Pressure at Boundaries
+void ParticleSystem::updateParticlesIISPH_Mirroring(std::vector<Particle>& particles, int x_size_screen, int y_size_screen) {
+
+     /////////// Index search
+     // Calculate the total number of cells in the grid and initialize C
+     C.clear();
+
+     // Index Search
+     // for neighbor search assign particle to a cell
+     for (auto& p : particles) {
+         int cellIndex = getCellIndex(p.position);
+         C[cellIndex]++;
+     }
+     L = generateSortedList(particles);
+     ////////////////////
+
+    for (auto& particle : particles) {
+        particle.particle_neighbours.clear();
+        iterateNeighbours(particle, particle.particle_neighbours);
+    }
+
+    float real_V_error_sum = 0.0f;
+
+    for (auto& particle : particles) {
+        particle.volume = SPHComputationsIISPH_PressureBoundaries::computeVolumeFluid(particle);
+
+        if (!(particle.isStatic)) {
+            float real_V_error;
+            if (particle.volume > particleRestVolume) {
+                real_V_error = 0.0f;
+            } else {
+                real_V_error = std::abs(particle.volume - particleRestVolume) / particleRestVolume * 100.0f;
+            }
+            real_V_error_sum += real_V_error;
+        }
+    }
+
+    real_V_error_sum /= countFluidParticles;
+
+    // Compute the percentage error with respect to particleRestVolume
+    float percentage_V_error = std::abs(real_V_error_sum - particleRestVolume) / particleRestVolume  * 100.0f;
+
+    for (auto& particle : particles) {
+        if (particle.isStatic) continue;
+        particle.predicted_velocity = SPHComputationsIISPH_PressureBoundaries::predictVelocity(particle);
+    }
+
+    for (auto& particle : particles) {
+        particle.sourceTerm = SPHComputationsIISPH_PressureBoundaries::computeSourceTerm(particle);
+
+        if (particle.isStatic) {
+            particle.diagonalElement = SPHComputationsIISPH_PressureBoundaries::computeDiagonalElementBoundary(particle);
+        } else {
+            particle.diagonalElement = SPHComputationsIISPH_PressureBoundaries::computeDiagonalElementFluid(particle);
+        }
+
+        if (!(particle.isStatic)) {
+            // normale pressure initilisierung
+            // particle.pressure = 0.0f;
+
+            particle.pressure = particle.pressure * 0.4f;
+
+            // als test TODO: Entfernen allerding glaube ich das hier ist besser
+            // particle.pressure = std::max(particle.sourceTerm/particle.diagonalElement, 0.0f);
+        }
+        if (particle.isStatic) particle.pressure = 0.0f;
+    }
+
+    int iterations_l = 0;
+    float V_error = 0.0f;
+
+    while (iterations_l < 100) {
+        int it = 0;                      // For out of bounds
+        V_error = 0.0f;                  // Reset volume error for this iteration
+
+        // for each fluid sample compute pressure acc
+        for (auto& particle : particles) {
+            if (particle.isStatic) continue;
+            particle.acceleration = SPHComputationsIISPH_PressureBoundaries::computePressureAccelerationMirror(particle);
+
+            // remove out of bounds particles
+            if (particle.position.x < 20 || particle.position.x > x_size_screen - 40 || particle.position.y < 20 || particle.position.y > y_size_screen - 40) {
+                m_particles.erase(m_particles.begin() + it);
+            }
+            it++;
+        }
+
+        for (auto& particle : particles) {
+            if (particle.isStatic) {
+                particle.Ap = SPHComputationsIISPH_PressureBoundaries::computeApBoundary(particle);
+            } else {
+                particle.Ap = SPHComputationsIISPH_PressureBoundaries::computeApFluid(particle);
+            }
+
+            // mit mirroring boundary handling (no pressure calculation at boundary particles)
+            if (particle.diagonalElement != 0.0f) {
+                if (particle.isStatic) continue;
+                particle.pressure = SPHComputationsIISPH_PressureBoundaries::updatePressure(particle);
+            }
+
+            // ohne extrapolation handling
+            // particle.pressure = SPHComputationsIISPH::updatePressure(particle);
+
+            // volume error fluid and boundary
+            float particle_volume_error = 100.0f * std::max(particle.Ap - particle.sourceTerm, 0.0f) / particleRestVolume;
+            V_error += particle_volume_error;  // Accumulate total volume error
+
+            if (std::isnan(particle.Ap)) {
+                printf("AP inf");
+            }
+
+            if (std::isinf(particle.pressure)) {
+                printf("Pressure inf");
+            }
+        }
+
+        // Average the volume and density errors across particles
+        V_error /= particles.size();
+
+        if (V_error < 0.01f && iterations_l > 1) {
+            currentIterations = iterations_l;
+            break;
+        }
+
+        iterations_l++;
+    }
+
+    currentVolumeError = real_V_error_sum;
+    // std::cout << "\rreal Error: " << real_V_error_sum << "% Time Step: " << timeStep << std::flush;
+    // std::cout << "\rreal Error: " << percentage_V_error << std::flush;
+
+    // printf("real Error: %f \n", real_V_error);
+    // printf("next \n \n");
+
+    // TODO write volume error txt
+    // Compute and write the curren Iterattion to the file
+    // std::string volumeErrorFile = "currentVolumeError_Mirror_Gamma_1.0.txt";
+    // SPHComputationsIISPH_PressureBoundaries::writeCurrentIterationToFile(volumeErrorFile);
+
+     SPHComputationsIISPH_PressureBoundaries::advectParticles(particles);
+
+     SPHComputationsIISPH_PressureBoundaries::isCFLConditionTrue(particles);
+
+    // printf("Courant Number: %f \n", SPHComputationsIISPH::getCourantNumber(particles));
+    // std::cout << "\rCourant Number: %f" << SPHComputationsIISPH::getCourantNumber(particles) << std::flush;
+
+    // moveRotatingCircle(300, 300, 100, 0.25f, timeStep);
+
+    // all for circle rotatimg
+    // moveRotatingCircleWithTriangles(300, 300, 100, 0.25f, timeStep);
+    // moveRotatingCircleWithRectangle(
+    // 300, 300, 100, 0.25f, timeStep, 5.0f);
+}
+
+// Simulation Step of solver with IISPH and Mirroring for Pressure at Boundaries
+void ParticleSystem::updateParticlesIISPH_MLSExtrapolation(std::vector<Particle>& particles, int x_size_screen, int y_size_screen) {
+
+     /////////// Index search
+     // Calculate the total number of cells in the grid and initialize C
+     C.clear();
+
+     // Index Search
+     // for neighbor search assign particle to a cell
+     for (auto& p : particles) {
+         int cellIndex = getCellIndex(p.position);
+         C[cellIndex]++;
+     }
+     L = generateSortedList(particles);
+     ////////////////////
+
+    for (auto& particle : particles) {
+        particle.particle_neighbours.clear();
+        iterateNeighbours(particle, particle.particle_neighbours);
+    }
+
+    float real_V_error_sum = 0.0f;
+
+    for (auto& particle : particles) {
+        particle.volume = SPHComputationsIISPH_PressureBoundaries::computeVolumeFluid(particle);
+
+        particle.diagonalElement = SPHComputationsIISPH_PressureBoundaries::computeDiagonalElementFluid(particle);
+
+        if (!(particle.isStatic)) {
+            // compute real error
+            // real_V_error += (particle.volume - particleRestVolume);
+            // float real_V_error = std::abs(particle.volume - particleRestVolume) / particleRestVolume * 100.0f;
+            // real_V_error_sum += real_V_error;
+
+            float real_V_error;
+            if (particle.volume > particleRestVolume) {
+                real_V_error = 0.0f;
+            } else {
+                real_V_error = std::abs(particle.volume - particleRestVolume) / particleRestVolume * 100.0f;
+            }
+            real_V_error_sum += real_V_error;
+        }
+    }
+
+    real_V_error_sum /= countFluidParticles;
+
+    // Compute the percentage error with respect to particleRestVolume
+    float percentage_V_error = std::abs(real_V_error_sum - particleRestVolume) / particleRestVolume  * 100.0f;
+
+    for (auto& particle : particles) {
+        if (particle.isStatic) continue;
+        particle.predicted_velocity = SPHComputationsIISPH_PressureBoundaries::predictVelocity(particle);
+    }
+
+    for (auto& particle : particles) {
+        particle.sourceTerm = SPHComputationsIISPH_PressureBoundaries::computeSourceTerm(particle);
+
+        if (particle.isStatic) {
+            // particle.diagonalElement = SPHComputationsIISPH_PressureBoundaries::computeDiagonalElementBoundary(particle);
+        } else {
+            // ich mach das schon oben boundary braucht keins
+            // particle.diagonalElement = SPHComputationsIISPH_PressureBoundaries::computeDiagonalElementFluid(particle);
+        }
+
+        // normale pressure initilisierung
+        particle.pressure = 0.0f;
+
+        // als test TODO: Entfernen allerding glaube ich das hier ist besser
+        // particle.pressure = std::max(particle.sourceTerm/particle.diagonalElement, 0.0f);
+    }
+
+    int iterations_l = 0;
+    float V_error = 0.0f;
+
+    while (iterations_l < 100) {
+        int it = 0;                      // For out of bounds
+        V_error = 0.0f;                  // Reset volume error for this iteration
+
+        for (auto& particle : particles) {
+            if (std::abs(particle.diagonalElement) > 1e-6f) {
+                if (particle.isStatic) {
+                    particle.pressure = SPHComputationsIISPH_MLSExtra::computePressureMLS(particle);
+                }
+            }
+            // particle.pressure = SPHComputationsIISPH_MLSExtra::computePressureMLS(particle);
+        }
+
+        // for each fluid sample compute pressure acc
+        for (auto& particle : particles) {
+            if (particle.isStatic) continue;
+            particle.acceleration = SPHComputationsIISPH_MLSExtra::computePressureAcceleration(particle);
+
+            // remove out of bounds particles
+            if (particle.position.x < 20 || particle.position.x > x_size_screen - 40 || particle.position.y < 20 || particle.position.y > y_size_screen - 40) {
+                m_particles.erase(m_particles.begin() + it);
+            }
+            it++;
+        }
+
+        for (auto& particle : particles) {
+            if (particle.isStatic) {
+                particle.Ap = SPHComputationsIISPH_PressureBoundaries::computeApBoundary(particle);
+            } else {
+                particle.Ap = SPHComputationsIISPH_PressureBoundaries::computeApFluid(particle);
+            }
+
+            // mit MLS boundary handling
+            if (std::abs(particle.diagonalElement) > 1e-6f) {
+                if (particle.isStatic) {
+                    // particle.pressure = SPHComputationsIISPH_MLSExtra::computePressureMLS(particle);
+                } else {
+                    particle.pressure = SPHComputationsIISPH_PressureBoundaries::updatePressure(particle);
+                    // particle.pressure = SPHComputationsIISPH_MLSExtra::updatePressureMLSFluid(particle);
+                }
+            }
+
+            // volume error fluid and boundary
+            float particle_volume_error = 100.0f * std::max(particle.Ap - particle.sourceTerm, 0.0f) / particleRestVolume;
+            V_error += particle_volume_error;  // Accumulate total volume error
+
+            if (std::isnan(particle.Ap)) {
+                printf("AP inf");
+            }
+
+            if (std::isinf(particle.pressure)) {
+                printf("Pressure inf");
+            }
+
+            if (std::isnan(particle.pressure)) {
+                printf("Pressure NAN");
+            }
+        }
+
+        // Average the volume and density errors across particles
+        V_error /= particles.size();
+
+        if (V_error < 0.1f && iterations_l > 1) {
+            currentIterations = iterations_l;
+            // printf("V_error: %f\n", V_error);
+            // printf("iterations needed: %d \n", iterations_l);
+
+            // Compute and write the curren Iterattion to the file
+            // std::string iterationFile = "currentIterations_1500.txt";
+            // SPHComputationsIISPH_PressureBoundaries::writeCurrentIterationToFile(iterationFile);
             break;
         }
 
@@ -502,123 +866,187 @@ void ParticleSystem::updateParticlesIISPH_Extrapolation(std::vector<Particle>& p
 
     // printf("Courant Number: %f \n", SPHComputationsIISPH::getCourantNumber(particles));
     // std::cout << "\rCourant Number: %f" << SPHComputationsIISPH::getCourantNumber(particles) << std::flush;
+
+    ParticleSpawning::moveRotatingCircle(300, 300, 100, 0.25f, timeStep, m_particles);
 }
 
-// Simulation Step of solver with DFSPH and MLS Extrapolation TODO does not work
-void ParticleSystem::updateParticlesDFSPH(std::vector<Particle>& particles, int x_size_screen, int y_size_screen) {
-    /////////// Index search
-    // Calculate the total number of cells in the grid and initialize C
-    C.clear();
+// // Simulation Step of solver with IISPH and Mirroring for Pressure at Boundaries -> new version but does not work!
+// void ParticleSystem::updateParticlesIISPH_MLSExtrapolation(std::vector<Particle>& particles, int x_size_screen, int y_size_screen) {
+//
+//      /////////// Index search
+//      // Calculate the total number of cells in the grid and initialize C
+//      C.clear();
+//
+//      // Index Search
+//      // for neighbor search assign particle to a cell
+//      for (auto& p : particles) {
+//          int cellIndex = getCellIndex(p.position);
+//          C[cellIndex]++;
+//      }
+//      L = generateSortedList(particles);
+//      ////////////////////
+//
+//     for (auto& particle : particles) {
+//         particle.particle_neighbours.clear();
+//         iterateNeighbours(particle, particle.particle_neighbours);
+//     }
+//
+//     float real_V_error_sum = 0.0f;
+//
+//     for (auto& particle : particles) {
+//         particle.volume = SPHComputationsIISPH_PressureBoundaries::computeVolumeFluid(particle);
+//
+//         particle.diagonalElement = SPHComputationsIISPH_PressureBoundaries::computeDiagonalElementFluid(particle);
+//
+//         if (!(particle.isStatic)) {
+//             // compute real error
+//             // real_V_error += (particle.volume - particleRestVolume);
+//             float real_V_error = std::abs(particle.volume - particleRestVolume) / particleRestVolume * 100.0f;
+//             real_V_error_sum += real_V_error;
+//         }
+//     }
+//
+//     real_V_error_sum /= countFluidParticles;
+//
+//     // Compute the percentage error with respect to particleRestVolume
+//     float percentage_V_error = std::abs(real_V_error_sum - particleRestVolume) / particleRestVolume  * 100.0f;
+//
+//     for (auto& particle : particles) {
+//         if (particle.isStatic) continue;
+//         particle.predicted_velocity = SPHComputationsIISPH_PressureBoundaries::predictVelocity(particle);
+//     }
+//
+//     for (auto& particle : particles) {
+//         particle.sourceTerm = SPHComputationsIISPH_MLSExtra::computeSourceTermDensityError(particle);
+//
+//
+//         // delete
+//         // if (particle.isStatic) {
+//         //     particle.diagonalElement = SPHComputationsIISPH_PressureBoundaries::computeDiagonalElementBoundary(particle);
+//         // } else {
+//         //     particle.diagonalElement = SPHComputationsIISPH_PressureBoundaries::computeDiagonalElementFluid(particle);
+//         // }
+//
+//         // normale pressure initilisierung
+//         particle.pressure = 0.0f;
+//
+//         // als test TODO: Entfernen allerding glaube ich das hier ist besser
+//         // particle.pressure = std::max(particle.sourceTerm/particle.diagonalElement, 0.0f);
+//
+//     }
+//
+//     int iterations_l = 0;
+//     float V_error = 0.0f;
+//
+//     while (iterations_l < 100) {
+//         int it = 0;                      // For out of bounds
+//         V_error = 0.0f;                  // Reset volume error for this iteration
+//
+//         for (auto& particle : particles) {
+//             if (particle.diagonalElement != 0.0f) {
+//                 if (particle.isStatic) {
+//                     particle.pressure = SPHComputationsIISPH_MLSExtra::computePressureMLS(particle);
+//                 }
+//             }
+//
+//             // remove out of bounds particles
+//             if (particle.position.x < 20 || particle.position.x > x_size_screen - 40 || particle.position.y < 20 || particle.position.y > y_size_screen - 40) {
+//                 m_particles.erase(m_particles.begin() + it);
+//             }
+//             it++;
+//         }
+//
+//         for (auto& particle : particles) {
+//             if (particle.isStatic) continue;
+//             particle.acceleration = SPHComputationsIISPH_MLSExtra::computePressureAcceleration(particle);
+//         }
+//
+//         for (auto& particle : particles) {
+//             if (particle.diagonalElement != 0.0f) {
+//                 if (particle.isStatic) continue;
+//                 particle.pressure = SPHComputationsIISPH_MLSExtra::updatePressureMLSFluid(particle);
+//                 }
+//             // volume error fluid and boundary
+//             float particle_volume_error = 100.0f * std::max(particle.pressure - particle.sourceTerm, 0.0f) / particleRestVolume;
+//             V_error += particle_volume_error;  // Accumulate total volume error
+//         }
+//
+//
+//
+//         // // for each fluid sample compute pressure acc
+//         // for (auto& particle : particles) {
+//         //     if (particle.isStatic) continue;
+//         //     particle.acceleration = SPHComputationsIISPH_PressureBoundaries::computePressureAcceleration(particle);
+//         //
+//         //     // remove out of bounds particles
+//         //     if (particle.position.x < 20 || particle.position.x > x_size_screen - 40 || particle.position.y < 20 || particle.position.y > y_size_screen - 40) {
+//         //         m_particles.erase(m_particles.begin() + it);
+//         //     }
+//         //     it++;
+//         // }
+//         //
+//         // for (auto& particle : particles) {
+//         //     if (particle.isStatic) {
+//         //         particle.Ap = SPHComputationsIISPH_PressureBoundaries::computeApBoundary(particle);
+//         //     } else {
+//         //         particle.Ap = SPHComputationsIISPH_PressureBoundaries::computeApFluid(particle);
+//         //     }
+//         //
+//         //     // mit mirroring boundary handling (no pressure calculation at boundary particles)
+//         //     if (particle.diagonalElement != 0.0f) {
+//         //         if (particle.isStatic) {
+//         //             particle.pressure = SPHComputationsIISPH_MLSExtra::computePressureMLS(particle);
+//         //
+//         //         } else {
+//         //             particle.pressure = SPHComputationsIISPH_PressureBoundaries::updatePressure(particle);
+//         //         }
+//         //     }
+//         //
+//         //     // volume error fluid and boundary
+//         //     float particle_volume_error = 100.0f * std::max(particle.Ap - particle.sourceTerm, 0.0f) / particleRestVolume;
+//         //     V_error += particle_volume_error;  // Accumulate total volume error
+//
+//         //     if (std::isnan(particle.Ap)) {
+//         //         printf("AP inf");
+//         //     }
+//         //
+//         //     if (std::isinf(particle.pressure)) {
+//         //         printf("Pressure inf");
+//         //     }
+//         // }
+//
+//
+//         // Average the volume and density errors across particles
+//         V_error /= particles.size();
+//
+//         if (V_error < 0.1f && iterations_l > 1) {
+//             currentIterations = iterations_l;
+//             // printf("V_error: %f\n", V_error);
+//             // printf("iterations needed: %d \n", iterations_l);
+//
+//             // Compute and write the curren Iterattion to the file
+//             // std::string iterationFile = "currentIterations_1500.txt";
+//             // SPHComputationsIISPH_PressureBoundaries::writeCurrentIterationToFile(iterationFile);
+//             break;
+//         }
+//
+//         iterations_l++;
+//     }
+//
+//     std::cout << "\rreal Error: " << real_V_error_sum << "% Time Step: " << timeStep << std::flush;
+//     // std::cout << "\rreal Error: " << percentage_V_error << std::flush;
+//
+//     // printf("real Error: %f \n", real_V_error);
+//     // printf("next \n \n");
+//
+//      SPHComputationsIISPH_PressureBoundaries::advectParticles(particles);
+//
+//      SPHComputationsIISPH_PressureBoundaries::isCFLConditionTrue(particles);
+//
+//     // printf("Courant Number: %f \n", SPHComputationsIISPH::getCourantNumber(particles));
+//     // std::cout << "\rCourant Number: %f" << SPHComputationsIISPH::getCourantNumber(particles) << std::flush;
+// }
 
-    // Index Search
-    // for neighbor search assign particle to a cell
-    for (auto& p : particles) {
-        int cellIndex = getCellIndex(p.position);
-        C[cellIndex]++;
-    }
-    L = generateSortedList(particles);
-    ////////////////////
-
-    for (auto& particle : particles) {
-        particle.particle_neighbours.clear();
-        iterateNeighbours(particle, particle.particle_neighbours);
-    }
-
-    for (auto& particle : particles) {
-        if (particle.isStatic) continue;
-        particle.density = SPHComputationsIISPH_MLSExtra::computeDensity(particle);
-        particle.diagonalElement = SPHComputationsIISPH_MLSExtra::computeFactorLambda(particle);
-    }
-
-
-    int iterations_all = 0;
-
-    while (true) {
-        // Correct Divergence Error
-        for (auto& particle : particles) { // for fluid particles
-            if (particle.isStatic) continue;
-            particle.sourceTerm = SPHComputationsIISPH_MLSExtra::computeSourceTermDivergenceFree(particle);
-            particle.pressure = 0.0f;
-        }
-
-        int iterations_Divergence = 0;
-        float Divergence_error = 0.0f;
-
-        while (true) {
-            for (auto& particle : particles) { // for boundary particles
-                if (!(particle.isStatic)) continue;
-                particle.pressure = SPHComputationsIISPH_MLSExtra::computePressureMLS(particle);
-            }
-
-            for (auto& particle : particles) { // for fluid particles
-                if (particle.isStatic) continue;
-                particle.acceleration = SPHComputationsIISPH_MLSExtra::computePressureAcceleration(particle);
-            }
-
-            for (auto& particle : particles) { // for fluid particles
-                if (particle.isStatic) continue;
-                particle.pressure = SPHComputationsIISPH_MLSExtra::setPressureDivergenceError(particle);
-            }
-
-            if (iterations_Divergence > 4) {
-                break;
-            }
-            iterations_Divergence++;
-        }
-
-        for (auto& particle : particles) { // for fluid particles
-            particle.predicted_velocity = particle.velocity + timeStep * particle.acceleration;
-        }
-
-        for (auto& particle : particles) { // for fluid particles
-            sf::Vector2f non_pressure_acc = SPHComputationsIISPH_MLSExtra::computeViscosity(particle)
-                                    + gravity;
-            non_pressure_acc *= timeStep;
-            particle.predicted_velocity = particle.predicted_velocity + non_pressure_acc;
-        }
-
-        // Correct Density Error
-        for (auto& particle : particles) { // for fluid particles
-            if (particle.isStatic) continue;
-            particle.sourceTerm = SPHComputationsIISPH_MLSExtra::computeSourceTermDensityError(particle);
-            particle.pressure = 0.0f;
-        }
-
-        int iterations_Density = 0;
-        float Density_error = 0.0f;
-
-        while (true) {
-            for (auto& particle : particles) { // for boundary particles
-                if (!(particle.isStatic)) continue;
-                particle.pressure = SPHComputationsIISPH_MLSExtra::computePressureMLS(particle);
-            }
-
-            for (auto& particle : particles) { // for fluid particles
-                if (particle.isStatic) continue;
-                particle.acceleration = SPHComputationsIISPH_MLSExtra::computePressureAcceleration(particle);
-            }
-
-            for (auto& particle : particles) { // for fluid particles
-                if (particle.isStatic) continue;
-                particle.pressure = SPHComputationsIISPH_MLSExtra::setPressureDensityError(particle);
-            }
-
-            if (iterations_Density > 4) {
-                break;
-            }
-            iterations_Density++;
-        }
-
-        if (iterations_all > 4) {
-            break;
-        }
-        iterations_all++;
-    }
-
-    SPHComputationsIISPH_MLSExtra::advectParticles(particles);
-
-    SPHComputationsIISPH_MLSExtra::isCFLConditionTrue(particles);
-}
 
 
 
@@ -628,22 +1056,20 @@ void ParticleSystem::updateParticlesDFSPH(std::vector<Particle>& particles, int 
 ////////////////////////////////////////////////////////////////////////////////////
 
 void ParticleSystem::resetSimulation() {
-    
     // addBox2(439, 584);
-    addBoxAnalyse(318, 405);
-    printf("Pressed Reset\n");
+    ParticleSpawning::addBoxAnalyse(260, 315, 12, m_particles);
 }
 
+//////////////////////// Neighbour Search ///////////////////////
+
 // quadratic search for test
-void ParticleSystem::quadraticNeighbourSearch(Particle& particle, std::vector<Particle>& m_neighbours) {
-    for (auto& neighbour : m_particles) {
+void ParticleSystem::quadraticNeighbourSearch(Particle &particle, std::vector<Particle> &m_neighbours) {
+    for (auto &neighbour: m_particles) {
         if (inRadius(particle.position, neighbour.position)) {
             m_neighbours.push_back(neighbour);
         }
     }
 }
-
-//////////////////////// Neighbour Search ///////////////////////
 
 // helper function to get Cell Index for Particles (get 1D Index from particles coords)
 int ParticleSystem::getCellIndex(const sf::Vector2f& position) const {
@@ -732,284 +1158,3 @@ bool ParticleSystem::inRadius(sf::Vector2f positionA, sf::Vector2f positionB, fl
 }
 
 ///////////////////////////////////////////////////////////////////////
-
-void ParticleSystem::moveBoundaryParticles(std::vector<Particle>& particles, float deltaX, float deltaY, bool switchDir) {
-    for (auto& particle : particles) {
-        if (particle.isMovableBoundary) {
-            if (switchDir == true) {
-                particle.position.x += deltaX * timeStep;
-            } else {
-                particle.position.x -= deltaX * timeStep;
-            }
-        }
-    }
-}
-
-void ParticleSystem::rotateBoundaryParticles(std::vector<Particle>& particles, float centerX, float centerY, float angle) {
-    float radian = angle * M_PI / 180.0f; // Convert angle to radians
-    float cosTheta = std::cos(radian);
-    float sinTheta = std::sin(radian);
-    
-    for (auto& particle : particles) {
-        if (particle.isMovableBoundary) {
-            float dx = particle.position.x - centerX;
-            float dy = particle.position.y - centerY;
-            
-            float newX = centerX + (dx * cosTheta - dy * sinTheta);
-            float newY = centerY + (dx * sinTheta + dy * cosTheta);
-            
-            particle.position.x = newX;
-            particle.position.y = newY;
-        }
-    }
-}
-
-// Place Particles in a Box Shape (mostly used for testing)
-void ParticleSystem::addBox(int numParticles) {
-    int xc = 0;
-    int x = x_size_screen/2 - 18;
-    int y = 650;
-
-    for (auto& particle : m_particles) {
-        if ((xc % 11) == 0) {
-            y += 1.1f * h;
-            x = x_size_screen/2 - 18;
-            particle.position = sf::Vector2f(x, y);
-        }
-        x += 1.1 * h;
-        particle.position = sf::Vector2f(x, y);
-        xc++;
-    }
-}
-
-void ParticleSystem::addBox2(int x, int y) {
-    int xc = 0;
-    int oldx = x;
-
-    for (auto& particle : m_particles) {
-        if (particle.isStatic == false) {
-            particle.velocity = sf::Vector2f(0.0f, 0.0f);
-            particle.acceleration = sf::Vector2f(0.0f, 0.0f);
-            particle.pressure = 0.0f;
-            particle.density = 0.0f;
-
-            if ((xc % 100) == 0) {
-                // y += 1.45f * h;
-                y += h;
-                // y += h * 0.5f;
-                x = oldx + 1;
-                particle.position = sf::Vector2f(x, y);
-            }
-            // x += 1.45f * h;
-            x += h;
-            // x += h * 0.5f;
-            particle.position = sf::Vector2f(x, y);
-            xc++;
-        }
-    }
-}
-
-void ParticleSystem::addBoxAnalyse(int x, int y) {
-    int xc = 0; // Counter for particles in a row
-    int yc = 0; // Counter for rows (layers)
-    int oldx = x; // Store the initial x position
-
-    for (auto& particle : m_particles) {
-        if (particle.isStatic == false) {
-            // Reset particle properties
-            particle.velocity = sf::Vector2f(0.0f, 0.0f);
-            particle.acceleration = sf::Vector2f(0.0f, 0.0f);
-            particle.pressure = 0.0f;
-            particle.density = 0.0f;
-
-            // Start a new layer when necessary
-            if ((xc % 12) == 0) {
-                y += h; // Move to the next layer
-                x = oldx; // Reset x to initial value
-                xc = 0; // Reset particle count in the row
-
-                // Apply staggered offset for every second layer
-                if ((yc % 2) == 1) {
-                    x -= static_cast<int>(0.5f * h); // Offset by 0.5 * h
-                }
-                yc++; // Increment row (layer) counter
-            }
-
-            // Set particle position and increment counters
-            particle.position = sf::Vector2f(x, y);
-            x += h; // Increment x for the next particle
-            xc++; // Increment particle counter
-        }
-    }
-}
-
-void ParticleSystem::addBoundaries(int numParticles, int x , int y) {
-
-    for (int i = 0; i < numParticles; i++) {
-        Particle particle;
-        particle.isStatic = true;
-        particle.color = sf::Color(255,255,0,255);
-
-        particle.position.x = x;
-        particle.position.y = y;
-
-        m_particles.push_back(particle);
-
-        x += h;
-    }
-}
-
-void ParticleSystem::addBoundaries2(int numParticles, int x , int y) {
-
-    for (int i = 0; i < numParticles; i++) {
-        Particle particle;
-        particle.isStatic = true;
-        particle.color = sf::Color(255,255,0,255);
-
-        particle.position.x = x;
-        particle.position.y = y;
-
-        m_particles.push_back(particle);
-
-        y += h;
-    }
-}
-
-void ParticleSystem::addMovingBoundaries(int numParticles, int x , int y) {
-    
-    for (int i = 0; i < numParticles; i++) {
-        Particle particle;
-        particle.isStatic = true;
-        particle.isMovableBoundary = true;
-        particle.color = sf::Color(255,255,0,255);
-
-        particle.position.x = x;
-        particle.position.y = y;
-
-        m_particles.push_back(particle);
-
-        y += h;
-    }
-}
-
-void ParticleSystem::addBoundariesWithAngle(int numParticles, int x, int y, float angle) {
-    // Convert angle to radians
-    float radianAngle = angle * (M_PI / 180.0f);
-
-    // Calculate the direction vector
-    float dx = cos(radianAngle);
-    float dy = sin(radianAngle);
-
-    // Scale the direction vector to ensure particles are h units apart
-    dx *= h;
-    dy *= h;
-
-    // Use floating-point for precise position calculations
-    float currentX = static_cast<float>(x);
-    float currentY = static_cast<float>(y);
-
-    for (int i = 0; i < numParticles; i++) {
-        Particle particle;
-        particle.isStatic = true;
-        particle.color = sf::Color(255, 255, 0, 255);
-
-        // Set the particle position using the rounded coordinates
-        particle.position.x = currentX;
-        particle.position.y = currentY;
-
-        // Add the particle to the system
-        m_particles.push_back(particle);
-
-        // Update currentX and currentY for the next particle
-        currentX += dx;
-        currentY += dy;
-    }
-}
-
-void ParticleSystem::addBoundariesInHalfCircle(float h, int centerX, int centerY, float radius, float startAngle) {
-    // Convert start angle to radians
-    float startRad = startAngle * (M_PI / 180.0f);
-    float endRad = (startAngle + 180.0f) * (M_PI / 180.0f);
-
-    // Calculate the total arc length of the half-circle
-    float arcLength = M_PI * radius; // Half-circle has 180 degrees or π radians
-
-    // Calculate the number of particles based on desired spacing
-    int numParticles = static_cast<int>(arcLength / h) + 1;
-
-    // Calculate the angle step based on the number of particles
-    float angleStep = (endRad - startRad) / (numParticles - 1);
-
-    // Place each particle along the arc
-    for (int i = 0; i < numParticles; i++) {
-        // Calculate the angle for this particle
-        float radianAngle = startRad + (i * angleStep);
-
-        // Calculate the position of the particle
-        int x = centerX + static_cast<int>(radius * cos(radianAngle));
-        int y = centerY + static_cast<int>(radius * sin(radianAngle));
-
-        // Create and configure the particle
-        Particle particle;
-        particle.isStatic = true;
-        particle.color = sf::Color(255, 255, 0, 255);
-        particle.position.x = x;
-        particle.position.y = y;
-
-        // Add the particle to the system
-        m_particles.push_back(particle);
-    }
-}
-
-
-
-
-//////////////////////////////////////////////////////////////////
-
-// void ParticleSystem::checkMouseHover(const sf::Vector2i& mousePosition) {
-//     sf::Vector2f mousePos(static_cast<float>(mousePosition.x), static_cast<float>(mousePosition.y));
-
-//     for(auto& particle : m_particles) {
-//         if (abs(mousePos.x - particle.position.x) < particleRadius &&
-//             abs(mousePos.y - particle.position.y) < particleRadius) {
-//             particle.color = sf::Color(255, 0, 0, 255);  // Change to red on hover
-//             iterateNeighbours(particle);
-//         } else {
-//             //particle.color = sf::Color(255, 255, 0, 255);  // Reset color if not hovering
-//         }
-//     }
-// }
-
-// void ParticleSystem::checkMouseHover(const sf::Vector2i& mousePosition) {
-//     sf::Vector2f mousePos(static_cast<float>(mousePosition.x), static_cast<float>(mousePosition.y));
-//     int mouseCellIndex = getCellIndex(mousePos);
-//
-//     // TODO delete later
-//     std::vector<Particle> neighbours;
-//
-//     // Reset color of all particles
-//     for (auto& particle : m_particles) {
-//         //particle.color = sf::Color(255, 255, 0, 255);  // Reset color
-//     }
-//
-//     // Check particles in the cell where the mouse pointer is located
-//     if (C.isValid(mousePos.x / cellSize, mousePos.y / cellSize)) {
-//         int mouseCellCoordX = mousePos.x / cellSize;
-//         int mouseCellCoordY = mousePos.y / cellSize;
-//         int numParticlesInCell = C.get(mouseCellCoordX, mouseCellCoordY + 1) - C.get(mouseCellCoordX, mouseCellCoordY);
-//
-//         for (int i = 0; i < numParticlesInCell; ++i) {
-//             int particleIndex = C.get(mouseCellCoordX, mouseCellCoordY) + i;
-//             if (inRadius(mousePos, L[particleIndex]->position, particleRadius)) {
-//                 L[particleIndex]->color = sf::Color(255, 0, 0, 255);  // Change to red on hover
-//                 iterateNeighbours(*L[particleIndex], neighbours);
-//
-//                 for (auto& p : neighbours) {
-//                     p.color = sf::Color(255, 255, 255, 255);
-//                 }
-//                 break;  // Only change color of the hovered particle
-//             }
-//         }
-//
-//     }
-// }

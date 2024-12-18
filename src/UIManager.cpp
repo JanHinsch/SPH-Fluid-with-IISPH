@@ -23,14 +23,17 @@ void UIManager::update() {
     if (m_gravityYSlider) {
         m_gravityChanged(sf::Vector2f(0.0f, m_gravityYSlider->getValue()));
     }
-    if (m_gamma2Slider) {
-        m_gamma2Changed(m_gamma2Slider->getValue());
+    if (m_SurfaceTensionSlider) {
+        m_surfaceChanged(m_SurfaceTensionSlider->getValue());
     }
     // Update CFL condition label
     updateCFLConditionLabel();
 
     // update current Iterations
     updateCurrentIterationsLabel(currentIterations);
+
+    // Update Volume Error Label
+    updateVolumeErrorLabel(currentVolumeError);
 }
 
 void UIManager::draw() {
@@ -42,13 +45,16 @@ void UIManager::initializeUI(const std::function<void()>& pauseResumeCallback,
                              const std::function<void(float)>& stiffnessChanged,
                              const std::function<void(float)>& viscosityChanged,
                              const std::function<void(const sf::Vector2f&)>& gravityChanged,
-                             const std::function<void(float)>& gamma2Changed) {
+                             const std::function<void(float)>& SurfaceChanged,
+                             const std::function<void(int)>& pressureModeChanged,
+                             const std::function<void(float)>& gamma1Changed) { // Added pressureModeChanged callback
     m_pauseResumeCallback = pauseResumeCallback;
     m_resetCallback = resetCallback;
     m_stiffnessChanged = stiffnessChanged;
     m_viscosityChanged = viscosityChanged;
     m_gravityChanged = gravityChanged;
-    m_gamma2Changed = gamma2Changed;
+    m_surfaceChanged = SurfaceChanged;
+    m_gamma1Changed = gamma1Changed;
 
     auto button = tgui::Button::create("Pause/Resume");
     button->setPosition(10, 10);
@@ -65,6 +71,60 @@ void UIManager::initializeUI(const std::function<void()>& pauseResumeCallback,
         m_resetCallback();
     });
     m_gui.add(resetButton);
+
+    // Pressure Mode Toggle
+    auto pressureModeComboBox = tgui::ComboBox::create();
+    pressureModeComboBox->setPosition(10, 230); // Adjust the position as needed
+    pressureModeComboBox->setSize(200, 30);
+    pressureModeComboBox->addItem("EOS Pressure");
+    pressureModeComboBox->addItem("Pressure Boundaries");
+    pressureModeComboBox->addItem("MLS Pressure Extrapolation");
+    pressureModeComboBox->addItem("SPH Extrapolation");
+    pressureModeComboBox->addItem("Mirroring");
+    // Default selected mode
+    if (EOS_Pressure) pressureModeComboBox->setSelectedItem("EOS Pressure");
+    if (IISPH_Pressure_Boundaries) pressureModeComboBox->setSelectedItem("Pressure Boundaries");
+    if (IISPH_MLS_Pressure_Extrapolation) pressureModeComboBox->setSelectedItem("MLS Pressure Extrapolation");
+    if (IISPH_Pressure_Extrapolation) pressureModeComboBox->setSelectedItem("SPH Extrapolation");
+    if (IISPH_Pressure_Mirroring) pressureModeComboBox->setSelectedItem("Mirroring");
+    pressureModeComboBox->onItemSelect([this, pressureModeChanged](const tgui::String& selectedItem) {
+        int mode = 0; // Map selected item to mode
+        if (selectedItem == "EOS Pressure") mode = 0;
+        else if (selectedItem == "Pressure Boundaries") mode = 1;
+        else if (selectedItem == "MLS Pressure Extrapolation") mode = 2;
+        else if (selectedItem == "SPH Extrapolation") mode = 3;
+        else if (selectedItem == "Mirroring") mode = 4;
+        pressureModeChanged(mode); // Call the callback with the selected mode
+    });
+    m_gui.add(pressureModeComboBox);
+
+    // Gamma1 EditBox instead of Slider
+    m_gamma1EditBox = tgui::EditBox::create();
+    m_gamma1EditBox->setPosition(10, 270); // Position below pressure mode combo box
+    m_gamma1EditBox->setSize(200, 30);
+    m_gamma1EditBox->setDefaultText("Enter Gamma1 value");
+    m_gamma1EditBox->setText(std::to_string(gamma_3));
+    m_gamma1EditBox->setMaximumCharacters(3);
+    m_gamma1EditBox->onTextChange([this](const tgui::String& text) {
+    // Convert TGUI string to std::string
+    std::string str = text.toStdString();
+    try {
+        float value = std::stof(str); // Convert string to float
+        m_gamma1Changed(value); // Call callback with the entered value
+        updateGamma1Label(value); // Update the label to reflect the new value
+    } catch (const std::invalid_argument&) {
+        // Handle invalid input (e.g., non-numeric input)
+        std::cout << "Invalid input for Gamma." << std::endl;
+    }
+});
+    m_gui.add(m_gamma1EditBox);
+
+    // Gamma1 Label
+    m_gamma1Label = tgui::Label::create();
+    m_gamma1Label->setPosition(220, 270);
+    m_gamma1Label->setTextSize(16);
+    updateGamma1Label(gamma_3);
+    m_gui.add(m_gamma1Label);
 
     // Stiffness Slider
     if (EOS_Pressure) {
@@ -130,25 +190,24 @@ void UIManager::initializeUI(const std::function<void()>& pauseResumeCallback,
     updateGravityYLabel(gravity.y);
     m_gui.add(m_gravityYLabel);
 
-    // Gamma 2 Slider -> now Surface Tension Factor
-    m_gamma2Slider = tgui::Slider::create();
-    m_gamma2Slider->setPosition(10, 140);
-    m_gamma2Slider->setSize(200, 20);
-    m_gamma2Slider->setMinimum(0);
-    m_gamma2Slider->setMaximum(1000);
-    m_gamma2Slider->setValue(surfaceTensionFactor);
-    m_gamma2Slider->onValueChange([this](int value) {
-        m_gamma2Changed(value);
-        updateGamma2Label(value);
+    // Surface Tension Factor Slider
+    m_SurfaceTensionSlider = tgui::Slider::create();
+    m_SurfaceTensionSlider->setPosition(10, 140);
+    m_SurfaceTensionSlider->setSize(200, 20);
+    m_SurfaceTensionSlider->setMinimum(0);
+    m_SurfaceTensionSlider->setMaximum(1000);
+    m_SurfaceTensionSlider->setValue(surfaceTensionFactor);
+    m_SurfaceTensionSlider->onValueChange([this](int value) {
+        updateSurfaceLabel(value);
     });
-    m_gui.add(m_gamma2Slider);
+    m_gui.add(m_SurfaceTensionSlider);
 
-    // Gamma 2 Label  -> i changed this fast to suraceTensionFactor
-    m_gamma2Label = tgui::Label::create();
-    m_gamma2Label->setPosition(220, 140);
-    m_gamma2Label->setTextSize(16);
-    updateGamma2Label(surfaceTensionFactor);
-    m_gui.add(m_gamma2Label);
+    // suraceTensionFactor Label
+    m_SurfaceTensionLabel = tgui::Label::create();
+    m_SurfaceTensionLabel->setPosition(220, 140);
+    m_SurfaceTensionLabel->setTextSize(16);
+    updateSurfaceLabel(surfaceTensionFactor);
+    m_gui.add(m_SurfaceTensionLabel);
 
     // CFL Label
     m_cflConditionLabel = tgui::Label::create();
@@ -157,11 +216,20 @@ void UIManager::initializeUI(const std::function<void()>& pauseResumeCallback,
     updateCFLConditionLabel();
     m_gui.add(m_cflConditionLabel);
 
+    // Volume Error Label
+    m_volumeErrorLabel = tgui::Label::create();
+    m_volumeErrorLabel->setPosition(10, 310);
+    m_volumeErrorLabel->setTextSize(16);
+    updateVolumeErrorLabel(currentVolumeError);
+    m_gui.add(m_volumeErrorLabel);
+
+
     // Conditional UI for IISPH
-    if (IISPH_Pressure_Boundaries || IISPH_Pressure_Extrapolation) {
+    if (IISPH_Pressure_Boundaries || IISPH_Pressure_Extrapolation || IISPH_Pressure_Mirroring || IISPH_Pressure_Zero
+        || IISPH_MLS_Pressure_Extrapolation) {
         // Add Current Iterations Label under the CFL Condition
         m_currentIterationsLabel = tgui::Label::create();
-        m_currentIterationsLabel->setPosition(10, 200); // Adjust position if needed
+        m_currentIterationsLabel->setPosition(10, 200);
         m_currentIterationsLabel->setTextSize(16);
         updateCurrentIterationsLabel(currentIterations);
         m_gui.add(m_currentIterationsLabel);
@@ -183,9 +251,9 @@ void UIManager::updateGravityYLabel(float value) {
     m_gravityYLabel->getRenderer()->setTextColor(sf::Color(255,255,255));
 }
 
-void UIManager::updateGamma2Label(float value) {
-    m_gamma2Label->setText("Surface Tension Factor: " + std::to_string(static_cast<int>(value)));
-    m_gamma2Label->getRenderer()->setTextColor(sf::Color(255,255,255));
+void UIManager::updateSurfaceLabel(float value) const {
+    m_SurfaceTensionLabel->setText("Surface Tension Factor: " + std::to_string(static_cast<int>(value)));
+    m_SurfaceTensionLabel->getRenderer()->setTextColor(sf::Color(255,255,255));
 }
 
 void UIManager::updateCFLConditionLabel() {
@@ -198,9 +266,35 @@ void UIManager::updateCFLConditionLabel() {
     }
 }
 
+void UIManager::updateVolumeErrorLabel(float value) {
+    if (CFLCondition == true) {
+        m_volumeErrorLabel->setText("Error: " + std::to_string(value) + "%");
+        m_volumeErrorLabel->getRenderer()->setTextColor(sf::Color::White);
+    }
+}
+
 void UIManager::updateCurrentIterationsLabel(int value) {
     if (m_currentIterationsLabel) {
         m_currentIterationsLabel->setText("Current Iterations: " + std::to_string(value));
         m_currentIterationsLabel->getRenderer()->setTextColor(sf::Color(255, 255, 255));
     }
+}
+
+// Define a function to handle pressure mode changes
+void UIManager::changePressureMode(int mode) {
+    EOS_Pressure = (mode == 0);
+    IISPH_Pressure_Boundaries = (mode == 1);
+    IISPH_MLS_Pressure_Extrapolation = (mode == 2);
+    IISPH_Pressure_Extrapolation = (mode == 3);
+    IISPH_Pressure_Mirroring = (mode == 4);
+
+    // Optional: Print mode for debugging
+    std::cout << "Pressure mode changed to: " << mode << std::endl;
+};
+
+void UIManager::updateGamma1Label(float value) const {
+    std::ostringstream stream;
+    stream << std::fixed << std::setprecision(2) << value;
+    m_gamma1Label->setText("Gamma");
+    m_gamma1Label->getRenderer()->setTextColor(sf::Color(255, 255, 255));
 }

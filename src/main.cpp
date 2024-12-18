@@ -7,7 +7,9 @@
 #include "../include/Visualization.h"
 #include "../include/SimulationEOS.h"
 #include "../include/Globals.h"
+sf::Clock uiClock;
 
+const float uiUpdateInterval = 0.1f; // 100 ms update interval
 int count = 0;
 
 int main() {
@@ -17,7 +19,7 @@ int main() {
     UIManager uiManager(window);
 
     // Create the particle system and visualization renderer
-    ParticleSystem particles(1000);
+    ParticleSystem particles(1008);
     particles.initiateParticles(particles.m_particles);
 
     ParticleSystemRenderer renderer;
@@ -48,10 +50,15 @@ int main() {
         [&](const sf::Vector2f& value) {
             gravity = value;
         },
-        [&](int value) {
+        [&](float value) {
             surfaceTensionFactor = value;
+        },
+        [](int mode) {
+            UIManager::changePressureMode(mode); // Properly wrap the call to changePressureMode
+        },
+        [&](int value) {
+            gamma_3 = value;
         }
-
     );
 
 
@@ -83,15 +90,19 @@ int main() {
         }
         // Update particles with IISPH and Pressure Boundaries
         if (!simulationPaused && IISPH_Pressure_Boundaries) {
-            particles.updateParticlesIISPH(particles.m_particles, x_size_screen, y_size_screen);
+            particles.updateParticlesIISPHPressureBoundaries(particles.m_particles, x_size_screen, y_size_screen);
         }
-        // Update particles with IISPH and Extrapolation at Boundaries
+        // Update particles with IISPH and SPH Extrapolation at Boundaries
         if (!simulationPaused && IISPH_Pressure_Extrapolation) {
             particles.updateParticlesIISPH_Extrapolation(particles.m_particles, x_size_screen, y_size_screen);
         }
+        // Update particles with IISPH and Mirror at Boundaries (no pressure calculation at boundary)
+        if (!simulationPaused && IISPH_Pressure_Mirroring) {
+            particles.updateParticlesIISPH_Mirroring(particles.m_particles, x_size_screen, y_size_screen);
+        }
         // Update particles with DFSPH and MLS Extrapolation for Boundaries
-        if (!simulationPaused && DFSPH_Pressure) {
-            particles.updateParticlesDFSPH(particles.m_particles, x_size_screen, y_size_screen);
+        if (!simulationPaused && IISPH_MLS_Pressure_Extrapolation) {
+            particles.updateParticlesIISPH_MLSExtrapolation(particles.m_particles, x_size_screen, y_size_screen);
         }
 
         // Update vertices based on new particle positions
@@ -99,6 +110,13 @@ int main() {
 
         // Handle camera updates
         renderer.updateCamera(window, view, event, particles);
+
+
+        // Update UI periodically
+        if (uiClock.getElapsedTime().asSeconds() > uiUpdateInterval) {
+            uiManager.update();
+            uiClock.restart();
+        }
 
         // Rendering
         window.clear();
@@ -116,9 +134,9 @@ int main() {
 
         // Exit the loop
         count++;
-        // std::cout << "\rcount: " << count << "/500 " << std::flush;
-        // if (count == 500) {
-        //     std::cout << "Simulation complete. Exiting..." << std::endl;
+        // std::cout << "\rcount: " << count << "/1000 " << std::flush;
+        // if (count == 1000) {
+        // std::cout << "Simulation complete. Exiting..." << std::endl;
         //     break;
         // }
 
@@ -137,8 +155,23 @@ int main() {
             view.zoom(0.9f);
             view.zoom(0.9f);
 
-            view.move(-300, 130);
+            view.move(-330, 130);
         }
+
+        // if (count==5000) {
+        //     view.zoom(0.9f);
+        //     view.zoom(0.9f);
+        //     view.zoom(0.9f);
+        //     view.zoom(0.9f);
+        //     view.zoom(0.9f);
+        //     view.zoom(0.9f);
+        //     view.zoom(0.9f);
+        //     view.zoom(0.9f);
+        //     view.zoom(0.9f);
+        //     view.zoom(0.9f);
+        //
+        //     view.move(0, 80);
+        // }
     }
 
     return 0;
